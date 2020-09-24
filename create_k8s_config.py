@@ -10,6 +10,8 @@ import subprocess
 import time
 import copy
 import xml.etree.ElementTree as ET
+import base64
+import yaml
 
 DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
@@ -63,6 +65,9 @@ def parse_arguments():
 
     plocal_cluster.add_argument(
         '--service_config', default='service-config.toml', help='Config file about service information.')
+
+    plocal_cluster.add_argument(
+        '--data_dir', default='/home/docker/cita-cloud-datadir', help='Root data dir where store data of each node.')
 
     args = parser.parse_args()
 
@@ -201,7 +206,7 @@ def gen_init_sysconfig(node_path, peers_count):
         toml.dump(init_sys_config, stream)
 
 
-# generate peers info by pod name
+# generate sync peers info by pod name
 def gen_sync_peers(work_dir, count, chain_name):
     mark_str = 'Device ID: '
     device_id_len = 63
@@ -224,7 +229,372 @@ def gen_sync_peers(work_dir, count, chain_name):
     return peers
 
 
+def gen_sync_configs(work_dir, sync_peers, chain_name):
+    for i in range(len(sync_peers)):
+        config_example = ET.parse(os.path.join(work_dir, 'config.xml'))
+        root = config_example.getroot()
+        # add device for all folder
+        for elem in root.findall('folder'):
+            for peer in sync_peers:
+                d = ET.SubElement(elem, 'device')
+                d.set('id', peer['device_id'])
+                d.set('introducedBy', '')
+        # add all device
+        for peer in sync_peers:
+            d = ET.SubElement(root, 'device')
+            d.set('id', peer['device_id'])
+            d.set('name', peer['ip'])
+            d.set('compression', 'always')
+            d.set('introducer', 'false')
+            d.set('skipIntroductionRemovals', 'false')
+            d.set('introducedBy', '')
+            address = ET.SubElement(d, 'address')
+            address.text = 'quic://{}:{}'.format(peer['ip'], peer['port'])
+            paused = ET.SubElement(d, 'paused')
+            paused.text = 'false'
+            autoAcceptFolders = ET.SubElement(d, 'autoAcceptFolders')
+            autoAcceptFolders.text = 'false'
+            maxSendKbps = ET.SubElement(d, 'maxSendKbps')
+            maxSendKbps.text = '0'
+            maxRecvKbps = ET.SubElement(d, 'maxRecvKbps')
+            maxRecvKbps.text = '0'
+            maxRequestKiB = ET.SubElement(d, 'maxRequestKiB')
+            maxRequestKiB.text = '0'
+        # add gui/apikey
+        gui = root.findall('gui')[0]
+        apikey = ET.SubElement(gui, 'apikey')
+        apikey.text = chain_name
+
+        config_example.write(os.path.join(work_dir, 'node{}/config/config.xml'.format(i)))
+
+
+def gen_kms_secret(kms_password):
+    bpwd = bytes(kms_password, encoding='utf8')
+    b64pwd = base64.b64encode(bpwd)
+    b64pwd_str = b64pwd.decode('utf-8')
+    secret = {
+        'apiVersion': 'v1',
+        'kind': 'Secret',
+        'metadata': {
+            'name': 'kms-secret',
+        },
+        'type': 'Opaque',
+        'data': {
+            'key_file': b64pwd_str
+        }
+    }
+    return secret
+
+
+def gen_grpc_service(chain_name):
+    grpc_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'name': '{}-loadbalancer'.format(chain_name)
+        },
+        'spec': {
+            'type': 'LoadBalancer',
+            'ports': [
+                 {
+                     'port': 50004,
+                     'targetPort': 50004
+                 }
+            ],
+            'selector': {
+                'chain_name': chain_name
+            }
+        }
+    }
+    return grpc_service
+
+
+def gen_network_secret(i):
+    network_key = '0x' + os.urandom(32).hex()
+    netwok_secret = {
+        'apiVersion': 'v1',
+        'kind': 'Secret',
+        'metadata': {
+            'name': 'node{}-network-secret'.format(i),
+        },
+        'type': 'Opaque',
+        'data': {
+            'network-key': base64.b64encode(bytes(network_key, encoding='utf8')).decode('utf-8')
+        }
+    }
+    return netwok_secret
+
+
+def gen_network_service(i, chain_name):
+    netwok_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'name': get_node_pod_name(i, chain_name)
+        },
+        'spec': {
+            'ports': [
+                {
+                    'port': 40000,
+                    'targetPort': 40000,
+                    'name': 'network',
+                },
+                {
+                    'port': 22000,
+                    'targetPort': 22000,
+                    'name': 'syncthing',
+                },
+                {
+                    'port': 8384,
+                    'targetPort': 8384,
+                    'name': 'gui',
+                }
+            ],
+            'selector': {
+                'node_name': get_node_pod_name(i, chain_name)
+            }
+        }
+    }
+    return netwok_service
+
+
+def gen_node_pod(i, chain_name, data_dir, service_config):
+    containers = [
+        {
+            'image': SYNCTHING_DOCKER_IMAGE,
+            'name': 'syncthing',
+            'ports': [
+                 {
+                     'containerPort': 22000,
+                     'protocol': 'TCP',
+                     'name': 'sync',
+                 },
+                 {
+                     'containerPort': 8384,
+                     'protocol': 'TCP',
+                     'name': 'gui',
+                 }
+            ],
+            'volumeMounts': [
+                {
+                    'name': 'datadir',
+                    'mountPath': '/var/syncthing',
+                }
+            ],
+        }
+    ]
+    for service in service_config['services']:
+        if service['name'] == 'network':
+            network_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 40000,
+                        'protocol': 'TCP',
+                        'name': 'network',
+                    },
+                    {
+                        'containerPort': 50000,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                    {
+                        'name': 'network-key',
+                        'mountPath': '/network',
+                        'readOnly': True,
+                    },
+                ],
+            }
+            containers.append(network_container)
+        elif service['name'] == 'consensus':
+            consensus_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 50001,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                ],
+            }
+            containers.append(consensus_container)
+        elif service['name'] == 'executor':
+            executor_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 50002,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                ],
+            }
+            containers.append(executor_container)
+        elif service['name'] == 'storage':
+            storage_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 50003,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                ],
+            }
+            containers.append(storage_container)
+        elif service['name'] == 'controller':
+            controller_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 50004,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                ],
+            }
+            containers.append(controller_container)
+        elif service['name'] == 'kms':
+            kms_container = {
+                'image': service['docker_image'],
+                'name': service['name'],
+                'ports': [
+                    {
+                        'containerPort': 50005,
+                        'protocol': 'TCP',
+                        'name': 'grpc',
+                    }
+                ],
+                'command': [
+                    'sh',
+                    '-c',
+                    service['cmd'],
+                ],
+                'workingDir': '/data',
+                'volumeMounts': [
+                    {
+                        'name': 'datadir',
+                        'mountPath': '/data',
+                    },
+                    {
+                        'name': 'kms-key',
+                        'mountPath': '/kms',
+                        'readOnly': True,
+                    },
+                ],
+            }
+            containers.append(kms_container)
+        else:
+            print("unexpected service")
+            sys.exit(1)
+
+    volumes = [
+        {
+            'name': 'datadir',
+            'hostPath': {
+                'path': '{}/node{}'.format(data_dir, i)
+            }
+        },
+        {
+            'name': 'kms-key',
+            'secret': {
+                'secretName': 'kms-secret'
+            }
+        },
+        {
+            'name': 'network-key',
+            'secret': {
+                'secretName': 'node{}-network-secret'.format(i)
+            }
+        },
+    ]
+    pod = {
+        'apiVersion': 'v1',
+        'kind': 'Pod',
+        'metadata': {
+            'name': get_node_pod_name(i, chain_name),
+            'labels': {
+                'node_name': get_node_pod_name(i, chain_name),
+                'chain_name': chain_name,
+            }
+        },
+        'spec': {
+            'containers': containers,
+            'volumes': volumes,
+        }
+    }
+    return pod
+
+
 def run_subcmd_local_cluster(args, work_dir):
+    if not args.kms_password:
+        print('kms_password must be set!')
+        sys.exit(1)
     service_config_path = os.path.join(work_dir, args.service_config)
     print("service_config_path:", service_config_path)
     service_config = toml.load(service_config_path)
@@ -267,46 +637,29 @@ def run_subcmd_local_cluster(args, work_dir):
     # generate syncthing config
     sync_peers = gen_sync_peers(work_dir, args.peers_count, args.chain_name)
     print("sync_peers:", sync_peers)
+    gen_sync_configs(work_dir, sync_peers, args.chain_name)
 
-    for i, peer in enumerate(sync_peers):
-        config_example = ET.parse(os.path.join(work_dir, 'config.xml'))
-        root = config_example.getroot()
-        # add device for all folder
-        for elem in root.findall('folder'):
-            for peer in sync_peers:
-                d = ET.SubElement(elem, 'device')
-                d.set('id', peer['device_id'])
-                d.set('introducedBy', '')
-        # add all device
-        for peer in sync_peers:
-            d = ET.SubElement(root, 'device')
-            d.set('id', peer['device_id'])
-            d.set('name', peer['ip'])
-            d.set('compression', 'always')
-            d.set('introducer', 'false')
-            d.set('skipIntroductionRemovals', 'false')
-            d.set('introducedBy', '')
-            address = ET.SubElement(d, 'address')
-            address.text = 'quic://{}:{}'.format(peer['ip'], peer['port'])
-            paused = ET.SubElement(d, 'paused')
-            paused.text = 'false'
-            autoAcceptFolders = ET.SubElement(d, 'autoAcceptFolders')
-            autoAcceptFolders.text = 'false'
-            maxSendKbps = ET.SubElement(d, 'maxSendKbps')
-            maxSendKbps.text = '0'
-            maxRecvKbps = ET.SubElement(d, 'maxRecvKbps')
-            maxRecvKbps.text = '0'
-            maxRequestKiB = ET.SubElement(d, 'maxRequestKiB')
-            maxRequestKiB.text = '0'
-        # add gui/apikey
-        gui = root.findall('gui')[0]
-        apikey = ET.SubElement(gui, 'apikey')
-        apikey.text = args.chain_name
+    # generate k8s yaml
+    k8s_config = []
+    kms_secret = gen_kms_secret(args.kms_password)
+    k8s_config.append(kms_secret)
+    grpc_service = gen_grpc_service(args.chain_name)
+    k8s_config.append(grpc_service)
+    for i in range(args.peers_count):
+        netwok_secret = gen_network_secret(i)
+        k8s_config.append(netwok_secret)
+        network_service = gen_network_service(i, args.chain_name)
+        k8s_config.append(network_service)
+        pod = gen_node_pod(i, args.chain_name, args.data_dir, service_config)
+        k8s_config.append(pod)
+    # write k8s_config to yaml file
+    yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))
+    print("yaml_ptah:{}", yaml_ptah)
+    with open(yaml_ptah, 'wt') as stream:
+        yaml.dump_all(k8s_config, stream)
 
-        config_example.write(os.path.join(work_dir, 'node{}/config/config.xml'.format(i)))
-
-        # generate k8s yaml
     print("Done!!!")
+
 
 def main():
     args = parse_arguments()

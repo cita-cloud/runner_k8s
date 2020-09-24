@@ -1,4 +1,3 @@
-is_need_network_key = true
 [[services]]
 name = "network"
 docker_image = "citacloud/network_p2p"

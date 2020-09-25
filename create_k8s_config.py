@@ -153,14 +153,15 @@ def gen_log4rs_config(node_path):
 
 CONSENSUS_CONFIG_TEMPLATE = '''network_port = 50000
 controller_port = 50004
+node_id = {}
 '''
 
 
 # generate consensus-config.toml
-def gen_consensus_config(node_path):
+def gen_consensus_config(node_path, i):
     path = os.path.join(node_path, 'consensus-config.toml')
     with open(path, 'wt') as stream:
-        stream.write(CONSENSUS_CONFIG_TEMPLATE)
+        stream.write(CONSENSUS_CONFIG_TEMPLATE.format(i))
 
 
 CONTROLLER_CONFIG_TEMPLATE = '''network_port = 50000
@@ -627,7 +628,7 @@ def run_subcmd_local_cluster(args, work_dir):
             toml.dump(net_config, stream)
         # generate log config
         gen_log4rs_config(node_path)
-        gen_consensus_config(node_path)
+        gen_consensus_config(node_path, index)
         gen_controller_config(node_path, args.block_delay_number)
         gen_genesis(node_path, timestamp, DEFAULT_PREVHASH)
         gen_init_sysconfig(node_path, args.peers_count)

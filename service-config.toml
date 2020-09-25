@@ -2,14 +2,14 @@
 name = "network"
 docker_image = "citacloud/network_p2p"
 cmd = "network run -p 50000 -k /network/network-key"
-[[services]]
-name = "consensus"
-docker_image = "citacloud/consensus_proof_of_sleep"
-cmd = "consensus run -p 50001"
 #[[services]]
 #name = "consensus"
-#docker_image = "citacloud/consensus_raft"
+#docker_image = "citacloud/consensus_proof_of_sleep"
 #cmd = "consensus run -p 50001"
+[[services]]
+name = "consensus"
+docker_image = "citacloud/consensus_raft"
+cmd = "consensus run -p 50001"
 [[services]]
 name = "executor"
 docker_image = "citacloud/executor_poc"

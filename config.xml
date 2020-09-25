@@ -89,7 +89,7 @@
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>quic://0.0.0.0:22000</listenAddress>
+        <listenAddress>tcp://0.0.0.0:22000</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>

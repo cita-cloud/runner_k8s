@@ -247,7 +247,7 @@ def gen_sync_configs(work_dir, sync_peers, chain_name):
             d.set('skipIntroductionRemovals', 'false')
             d.set('introducedBy', '')
             address = ET.SubElement(d, 'address')
-            address.text = 'quic://{}:{}'.format(peer['ip'], peer['port'])
+            address.text = 'tcp://{}:{}'.format(peer['ip'], peer['port'])
             paused = ET.SubElement(d, 'paused')
             paused.text = 'false'
             autoAcceptFolders = ET.SubElement(d, 'autoAcceptFolders')

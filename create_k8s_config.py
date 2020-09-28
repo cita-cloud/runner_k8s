@@ -15,6 +15,8 @@ import yaml
 
 DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
+DEFAULT_BLOCK_INTERVAL = 6
+
 SERVICE_LIST = [
     'network',
     'consensus',
@@ -48,7 +50,7 @@ def parse_arguments():
     plocal_cluster.add_argument(
         '--block_delay_number',
         type=int,
-        default=6,
+        default=0,
         help='The block delay number of chain.')
 
     plocal_cluster.add_argument(
@@ -202,6 +204,7 @@ validators = [\"0x010928818c840630a60b4fda06848cac541599462f\"]
 def gen_init_sysconfig(node_path, peers_count):
     init_sys_config = toml.loads(INIT_SYSCONFIG_TEMPLATE)
     init_sys_config['validators'] *= peers_count
+    init_sys_config['block_interval'] = DEFAULT_BLOCK_INTERVAL
     path = os.path.join(node_path, 'init_sys_config.toml')
     with open(path, 'wt') as stream:
         toml.dump(init_sys_config, stream)

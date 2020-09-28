@@ -383,6 +383,16 @@ def gen_node_pod(i, chain_name, data_dir, service_config):
                     'mountPath': '/var/syncthing',
                 }
             ],
+            'env': [
+                {
+                    'name': 'PUID',
+                    'value': '0',
+                },
+                {
+                    'name': 'PGID',
+                    'value': '0',
+                },
+            ]
         }
     ]
     for service in service_config['services']:

@@ -216,7 +216,7 @@ def gen_sync_peers(work_dir, count, chain_name):
     device_id_len = 63
     peers = []
     for i in range(count):
-        cmd = 'docker run --rm -v {0}:{0} {1} -generate="{0}/node{2}/config"'.format(work_dir, SYNCTHING_DOCKER_IMAGE, i)
+        cmd = 'docker run --rm -e PUID=$(id -u $USER) -e PGID=$(id -g $USER) -v {0}:{0} {1} -generate="{0}/node{2}/config"'.format(work_dir, SYNCTHING_DOCKER_IMAGE, i)
         syncthing_gen = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output = str(syncthing_gen.stdout.read())
         mark_index = output.index(mark_str)

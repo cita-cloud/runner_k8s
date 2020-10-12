@@ -2,6 +2,11 @@
 
 本工具帮助用户方便的在`k8s`环境中启动一条`cita-cloud`链。本工具会为链的每一个节点生成必须的配置文件，以及用于部署到`k8s`的`yaml`文件。
 
+### 依赖
+
+* python 3
+* docker
+
 ### 使用方法
 
 ```
@@ -61,7 +66,7 @@ $ minikube ssh
 docker@minikube:~$ mkdir cita-cloud-datadir
 docker@minikube:~$ exit
 $ scp -i ~/.minikube/machines/minikube/id_rsa -r ./node* docker@`minikube ip`:~/cita-cloud-datadir/
-$ kubectl create -f test-chain.yaml
+$ kubectl apply -f test-chain.yaml
 secret/kms-secret created
 service/test-chain-loadbalancer created
 secret/node0-network-secret created

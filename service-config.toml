@@ -1,32 +1,24 @@
 [[services]]
 name = "network"
-docker_image = "citacloud/network_p2p"
+docker_image = "citacloud/network_p2p:v0.1.0"
 cmd = "network run -p 50000 -k /network/network-key"
-#[[services]]
-#name = "consensus"
-#docker_image = "citacloud/consensus_proof_of_sleep"
-#cmd = "consensus run -p 50001"
 [[services]]
 name = "consensus"
-docker_image = "citacloud/consensus_raft"
+docker_image = "citacloud/consensus_raft:v0.1.0"
 cmd = "consensus run -p 50001"
 [[services]]
 name = "executor"
-docker_image = "citacloud/executor_poc"
+docker_image = "citacloud/executor_poc:v0.1.0"
 cmd = "executor run -p 50002"
 [[services]]
 name = "storage"
-docker_image = "citacloud/storage_sqlite"
+docker_image = "citacloud/storage_sqlite:v0.1.0"
 cmd = "storage run -p 50003"
-#[[services]]
-#name = "storage"
-#docker_image = "citacloud/storage_tikv"
-#cmd = "storage run -p 50003 -e basic-pd:2379"
 [[services]]
 name = "controller"
-docker_image = "citacloud/controller_poc"
+docker_image = "citacloud/controller_poc:v0.1.0"
 cmd = "controller run -p 50004"
 [[services]]
 name = "kms"
-docker_image = "citacloud/kms"
+docker_image = "citacloud/kms:v0.1.0"
 cmd = "kms run -p 50005 -k /kms/key_file"

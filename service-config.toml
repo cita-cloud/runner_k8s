@@ -10,9 +10,13 @@ cmd = "network run -p 50000 -k /network/network-key"
 name = "consensus"
 docker_image = "citacloud/consensus_raft"
 cmd = "consensus run -p 50001"
+#[[services]]
+#name = "executor"
+#docker_image = "citacloud/executor_poc"
+#cmd = "executor run -p 50002"
 [[services]]
 name = "executor"
-docker_image = "citacloud/executor_poc"
+docker_image = "citacloud/executor_chaincode"
 cmd = "executor run -p 50002"
 [[services]]
 name = "storage"

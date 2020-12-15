@@ -480,6 +480,40 @@ def gen_node_pod(i, chain_name, data_dir, service_config):
                     },
                 ],
             }
+            # if executor is chaincode
+            # add chaincode_port for executor
+            # add chaincode_container
+            if "chaincode" in service['docker_image']:
+                chaincode_port = {
+                    'containerPort': 7052,
+                    'protocol': 'TCP',
+                    'name': 'chaincode',
+                }
+                executor_container['ports'].append(chaincode_port)
+                chaincode_container = {
+                    'image': "citacloud/asset-transfer-basic",
+                    'name': "chaincode",
+                    'command': [
+                        '/bin/asset-transfer-basic',
+                        "--peer.address",
+                        "127.0.0.1:7052",
+                    ],
+                    'env': [
+                        {
+                            'name': 'CORE_PEER_LOCALMSPID',
+                            'value': 'Org1MSP',
+                        },
+                        {
+                            'name': 'CORE_PEER_TLS_ENABLED',
+                            'value': 'false',
+                        },
+                        {
+                            'name': 'CORE_CHAINCODE_ID_NAME',
+                            'value': 'asset-transfer-basic',
+                        },
+                    ],
+                }
+                containers.append(chaincode_container)
             containers.append(executor_container)
         elif service['name'] == 'storage':
             storage_container = {

@@ -26,7 +26,7 @@ SERVICE_LIST = [
     'kms',
 ]
 
-SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
+SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:1.12'
 
 SYNC_FOLDERS = [
     'blocks',

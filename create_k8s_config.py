@@ -729,7 +729,7 @@ def run_subcmd_local_cluster(args, work_dir):
     yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))
     print("yaml_ptah:{}", yaml_ptah)
     with open(yaml_ptah, 'wt') as stream:
-        yaml.dump_all(k8s_config, stream)
+        yaml.dump_all(k8s_config, stream, sort_keys=False)
 
     print("Done!!!")
 

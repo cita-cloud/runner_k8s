@@ -516,11 +516,10 @@ def gen_node_pod(i, args, service_config):
                                 'name': 'couchdb',
                             }
                         ],
-                        'workingDir': '/data',
                         'volumeMounts': [
                             {
                                 'name': 'datadir',
-                                'mountPath': '/data',
+                                'mountPath': '/opt/couchdb/data',
                             },
                         ],
                         'env': [

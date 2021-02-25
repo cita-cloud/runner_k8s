@@ -10,9 +10,10 @@
 ### 使用方法
 
 ```
-$ ./create_k8s_config.py local_cluster -h
+$ ./create_k8s_config.py local_cluster -h                                   
 usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
-                                          [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD] [--service_config SERVICE_CONFIG]
+                                          [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD] [--state_db_user STATE_DB_USER]
+                                          [--state_db_password STATE_DB_PASSWORD] [--service_config SERVICE_CONFIG]
                                           [--data_dir DATA_DIR]
 
 optional arguments:
@@ -25,6 +26,10 @@ optional arguments:
                         Count of peers.
   --kms_password KMS_PASSWORD
                         Password of kms.
+  --state_db_user STATE_DB_USER
+                        User of state db.
+  --state_db_password STATE_DB_PASSWORD
+                        Password of state db.
   --service_config SERVICE_CONFIG
                         Config file about service information.
   --data_dir DATA_DIR   Root data dir where store data of each node.
@@ -40,7 +45,7 @@ optional arguments:
 
 1. `network`。目前只有`network_p2p`这一个实现，选择该实现，需要将`is_need_network_key`设置为`true`。
 2. `consensus`。目前有`consensus_proof_of_sleep`和`consensus_raft`两个实现。
-3. `executor`。目前只有`executor_poc`这一个实现。
+3. `executor`。目前有`executor_poc`，`executor_chaincode`和`executor_chaincode_ext`三个实现。
 4. `storage`。目前有`storage_sqlite`和`storage_tikv`两个实现。如果选择使用`storage_tikv`，需要先按照[文档](https://tikv.org/docs/4.0/tasks/try/tikv-operator/)安装运行`tikv`。
 5. `controller`。目前只有`controller_poc`这一个实现。
 6. `kms`。目前只有`kms`这一个实现。
@@ -50,12 +55,12 @@ optional arguments:
 运行命令生成相应的文件。`kms`的密码是必选参数，其他参数使用默认值。
 
 ```shell
-$ ./create_k8s_config.py local_cluster --kms_password 123456
+$ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --state_db_user citacloud --state_db_password 123456
 $ ls
-node0  node1  test-chain.yaml
+node0  node1 node2  test-chain.yaml
 ```
 
-`node0`，`node1`是两个节点文件夹，里面有相应节点的配置文件。`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+`node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
 
 ### 部署
 
@@ -100,6 +105,13 @@ docker@minikube:~$ tail -10f cita-cloud-datadir/node0/logs/controller-service.lo
 $ kubectl port-forward svc/test-chain-loadbalancer 50004:50004
 Forwarding from 127.0.0.1:50004 -> 50004
 Forwarding from [::1]:50004 -> 50004
+```
+
+映射`chaincode`端口
+```
+$ kubectl port-forward pod/test-chain-0 7052:7052
+Forwarding from 127.0.0.1:7052 -> 7052
+Forwarding from [::1]:7052 -> 7052
 ```
 
 停止

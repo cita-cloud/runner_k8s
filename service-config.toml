@@ -14,9 +14,13 @@ cmd = "consensus run -p 50001"
 #name = "executor"
 #docker_image = "citacloud/executor_poc"
 #cmd = "executor run -p 50002"
+#[[services]]
+#name = "executor"
+#docker_image = "citacloud/executor_chaincode"
+#cmd = "executor run -p 50002"
 [[services]]
 name = "executor"
-docker_image = "citacloud/executor_chaincode"
+docker_image = "citacloud/executor_chaincode_ext"
 cmd = "executor run -p 50002"
 [[services]]
 name = "storage"

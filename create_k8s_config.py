@@ -66,6 +66,12 @@ def parse_arguments():
         '--kms_password', help='Password of kms.')
 
     plocal_cluster.add_argument(
+        '--state_db_user', help='User of state db.')
+
+    plocal_cluster.add_argument(
+        '--state_db_password', help='Password of state db.')
+
+    plocal_cluster.add_argument(
         '--service_config', default='service-config.toml', help='Config file about service information.')
 
     plocal_cluster.add_argument(
@@ -328,7 +334,7 @@ def gen_network_secret(i):
 
 
 def gen_network_service(i, chain_name):
-    netwok_service = {
+    network_service = {
         'apiVersion': 'v1',
         'kind': 'Service',
         'metadata': {
@@ -350,6 +356,11 @@ def gen_network_service(i, chain_name):
                     'port': 8384,
                     'targetPort': 8384,
                     'name': 'gui',
+                },
+                {
+                    'port': 7052,
+                    'targetPort': 7052,
+                    'name': 'chaincode',
                 }
             ],
             'selector': {
@@ -357,10 +368,14 @@ def gen_network_service(i, chain_name):
             }
         }
     }
-    return netwok_service
+    return network_service
 
 
-def gen_node_pod(i, chain_name, data_dir, service_config):
+def gen_node_pod(i, args, service_config):
+    chain_name = args.chain_name
+    data_dir = args.data_dir
+    state_db_user = args.state_db_user
+    state_db_password = args.state_db_password
     containers = [
         {
             'image': SYNCTHING_DOCKER_IMAGE,
@@ -490,31 +505,44 @@ def gen_node_pod(i, chain_name, data_dir, service_config):
                     'name': 'chaincode',
                 }
                 executor_container['ports'].append(chaincode_port)
-                chaincode_container = {
-                    'image': "citacloud/asset-transfer-basic",
-                    'name': "chaincode",
-                    'command': [
-                        '/bin/asset-transfer-basic',
-                        "--peer.address",
-                        "127.0.0.1:7052",
-                    ],
-                    'env': [
-                        {
-                            'name': 'CORE_PEER_LOCALMSPID',
-                            'value': 'Org1MSP',
-                        },
-                        {
-                            'name': 'CORE_PEER_TLS_ENABLED',
-                            'value': 'false',
-                        },
-                        {
-                            'name': 'CORE_CHAINCODE_ID_NAME',
-                            'value': 'asset-transfer-basic',
-                        },
-                    ],
-                }
-                containers.append(chaincode_container)
-            containers.append(executor_container)
+                if "chaincode_ext" in service['docker_image']:
+                    state_db_container = {
+                        'image': "couchdb",
+                        'name': "couchdb",
+                        'ports': [
+                            {
+                                'containerPort': 5984,
+                                'protocol': 'TCP',
+                                'name': 'couchdb',
+                            }
+                        ],
+                        'workingDir': '/data',
+                        'volumeMounts': [
+                            {
+                                'name': 'datadir',
+                                'mountPath': '/data',
+                            },
+                        ],
+                        'env': [
+                            {
+                                'name': 'COUCHDB_USER',
+                                'value': state_db_user,
+                            },
+                            {
+                                'name': 'COUCHDB_PASSWORD',
+                                'value': state_db_password,
+                            },
+                        ],
+                    }
+                    containers.append(state_db_container)
+                    # add --couchdb-username username --couchdb-password password
+                    executor_ext_cmd = service['cmd'] + " --couchdb-username " + state_db_user + " --couchdb-password " + state_db_password
+                    executor_container['command'] = [
+                        'sh',
+                        '-c',
+                        executor_ext_cmd,
+                    ]
+                containers.append(executor_container)
         elif service['name'] == 'storage':
             storage_container = {
                 'image': service['docker_image'],
@@ -696,7 +724,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        pod = gen_node_pod(i, args.chain_name, args.data_dir, service_config)
+        pod = gen_node_pod(i, args, service_config)
         k8s_config.append(pod)
     # write k8s_config to yaml file
     yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))

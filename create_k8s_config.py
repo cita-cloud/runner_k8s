@@ -518,7 +518,7 @@ def gen_node_pod(i, args, service_config):
                         ],
                         'volumeMounts': [
                             {
-                                'name': 'datadir',
+                                'name': 'state-datadir',
                                 'mountPath': '/opt/couchdb/data',
                             },
                         ],
@@ -631,6 +631,12 @@ def gen_node_pod(i, args, service_config):
             'name': 'datadir',
             'hostPath': {
                 'path': '{}/node{}'.format(data_dir, i)
+            }
+        },
+        {
+            'name': 'state-datadir',
+            'hostPath': {
+                'path': '{}/node{}/state-data'.format(data_dir, i)
             }
         },
         {

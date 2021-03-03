@@ -36,5 +36,9 @@ docker_image = "citacloud/controller_poc"
 cmd = "controller run -p 50004"
 [[services]]
 name = "kms"
-docker_image = "citacloud/kms"
+docker_image = "citacloud/kms_sm"
 cmd = "kms run -p 50005 -k /kms/key_file"
+#[[services]]
+#name = "kms"
+#docker_image = "citacloud/kms_eth"
+#cmd = "kms run -p 50005 -k /kms/key_file"

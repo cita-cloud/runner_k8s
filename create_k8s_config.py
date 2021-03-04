@@ -193,10 +193,27 @@ prevhash = \"{}\"
 '''
 
 
-def gen_genesis(node_path, timestamp, prevhash):
-    path = os.path.join(node_path, 'genesis.toml')
+def gen_genesis(work_dir, timestamp, prevhash, peers_count):
+    for i in range(peers_count):
+        path = os.path.join("{0}/node{1}".format(work_dir, i), 'genesis.toml')
+        with open(path, 'wt') as stream:
+            stream.write(GENESIS_TEMPLATE.format(timestamp, prevhash))
+
+
+def gen_kms_account(dir, kms_docker_image):
+    cmd = 'docker run --rm -e PUID=$(id -u $USER) -e PGID=$(id -g $USER) -v {0}:{0} -w {0} {1} kms create -k key_file'.format(dir, kms_docker_image)
+    kms_create = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    output = kms_create.stdout.readlines()[-1].decode().strip()
+    # output should looks like: key_id:1,address:0xba21324990a2feb0a0b6ca16b444b5585b841df9
+    infos = output.split(',')
+    key_id = infos[0].split(':')[1]
+    address = infos[1].split(':')[1]
+
+    path = os.path.join(dir, 'key_id')
     with open(path, 'wt') as stream:
-        stream.write(GENESIS_TEMPLATE.format(timestamp, prevhash))
+        stream.write(key_id)
+
+    return address
 
 
 INIT_SYSCONFIG_TEMPLATE = '''version = 0
@@ -207,13 +224,38 @@ validators = [\"0x010928818c840630a60b4fda06848cac541599462f\"]
 '''
 
 
-def gen_init_sysconfig(node_path, peers_count):
-    init_sys_config = toml.loads(INIT_SYSCONFIG_TEMPLATE)
-    init_sys_config['validators'] *= peers_count
-    init_sys_config['block_interval'] = DEFAULT_BLOCK_INTERVAL
-    path = os.path.join(node_path, 'init_sys_config.toml')
+def gen_init_sysconfig(work_dir, peers_count, kms_password, kms_docker_image):
+    # set key_file
+    # for admin
+    path = os.path.join(work_dir, 'key_file')
     with open(path, 'wt') as stream:
-        toml.dump(init_sys_config, stream)
+        stream.write(kms_password)
+
+    # for all peers
+    for i in range(peers_count):
+        path = os.path.join("{0}/node{1}".format(work_dir, i), 'key_file')
+        with open(path, 'wt') as stream:
+            stream.write(kms_password)
+
+    init_sys_config = toml.loads(INIT_SYSCONFIG_TEMPLATE)
+    init_sys_config['block_interval'] = DEFAULT_BLOCK_INTERVAL
+    init_sys_config['validators'] = []
+
+    # generate admin account
+    admin_addr = gen_kms_account(work_dir, kms_docker_image)
+    init_sys_config['admin'] = admin_addr
+
+    # generate account for all peers
+    for i in range(peers_count):
+        path = "{0}/node{1}".format(work_dir, i)
+        addr = gen_kms_account(path, kms_docker_image)
+        init_sys_config['validators'].append(addr)
+
+    # write init_sys_config.toml into peers
+    for i in range(peers_count):
+        path = os.path.join("{0}/node{1}".format(work_dir, i), 'init_sys_config.toml')
+        with open(path, 'wt') as stream:
+            toml.dump(init_sys_config, stream)
 
 
 # generate sync peers info by pod name
@@ -670,6 +712,12 @@ def gen_node_pod(i, args, service_config):
     return pod
 
 
+def find_docker_image(service_config, service_name):
+    for service in service_config['services']:
+        if service['name'] == service_name:
+            return service['docker_image']
+
+
 def run_subcmd_local_cluster(args, work_dir):
     if not args.kms_password:
         print('kms_password must be set!')
@@ -698,7 +746,6 @@ def run_subcmd_local_cluster(args, work_dir):
     print("net_config_list:", net_config_list)
 
     # generate node config
-    timestamp = int(time.time() * 1000)
     for index, net_config in enumerate(net_config_list):
         node_path = os.path.join(work_dir, 'node{}'.format(index))
         need_directory(node_path)
@@ -710,8 +757,12 @@ def run_subcmd_local_cluster(args, work_dir):
         gen_log4rs_config(node_path)
         gen_consensus_config(node_path, index)
         gen_controller_config(node_path, args.block_delay_number)
-        gen_genesis(node_path, timestamp, DEFAULT_PREVHASH)
-        gen_init_sysconfig(node_path, args.peers_count)
+
+    # generate genesis and init_sys_config
+    timestamp = int(time.time() * 1000)
+    gen_genesis(work_dir, timestamp, DEFAULT_PREVHASH, args.peers_count)
+    kms_docker_image = find_docker_image(service_config, "kms")
+    gen_init_sysconfig(work_dir, args.peers_count, args.kms_password, kms_docker_image)
 
     # generate syncthing config
     sync_peers = gen_sync_peers(work_dir, args.peers_count, args.chain_name)

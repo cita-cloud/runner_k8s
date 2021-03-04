@@ -44,15 +44,15 @@ optional arguments:
 目前有的微服务实现有：
 
 1. `network`。目前只有`network_p2p`这一个实现，选择该实现，需要将`is_need_network_key`设置为`true`。
-2. `consensus`。目前有`consensus_proof_of_sleep`和`consensus_raft`两个实现。
-3. `executor`。目前有`executor_poc`，`executor_chaincode`和`executor_chaincode_ext`三个实现。
+2. `consensus`。目前有`consensus_raft`一个实现。
+3. `executor`。目前有`executor_chaincode`和`executor_chaincode_ext`两个实现，其中`executor_chaincode_ext`是不开源的。
 4. `storage`。目前有`storage_sqlite`和`storage_tikv`两个实现。如果选择使用`storage_tikv`，需要先按照[文档](https://tikv.org/docs/4.0/tasks/try/tikv-operator/)安装运行`tikv`。
 5. `controller`。目前只有`controller_poc`这一个实现。
-6. `kms`。目前只有`kms`这一个实现。
+6. `kms`。目前有`kms_eth`和`kms_sm`两个实现，分别兼容以太坊和国密。
 
 注意：六个微服务缺一不可；每个微服务只能选择一个实现，不能多选。
 
-运行命令生成相应的文件。`kms`的密码是必选参数，其他参数使用默认值。
+运行命令生成相应的文件。`kms`的密码，`state db`的用户名和密码是必选参数，其他参数使用默认值。
 
 ```shell
 $ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --state_db_user citacloud --state_db_password 123456
@@ -80,6 +80,9 @@ pod/test-chain-0 created
 secret/node1-network-secret created
 service/test-chain-1 created
 pod/test-chain-1 created
+secret/node2-network-secret created
+service/test-chain-2 created
+pod/test-chain-2 created
 ```
 
 查看运行情况：
@@ -126,5 +129,8 @@ pod "test-chain-0" deleted
 secret "node1-network-secret" deleted
 service "test-chain-1" deleted
 pod "test-chain-1" deleted
+secret "node2-network-secret" deleted
+service "test-chain-2" deleted
+pod "test-chain-2" deleted
 ```
 

@@ -1,6 +1,6 @@
 # runner_k8s
 
-本工具帮助用户方便的在`k8s`环境中启动一条`cita-cloud`链。本工具会为链的每一个节点生成必须的配置文件，以及用于部署到`k8s`的`yaml`文件。
+本工具帮助用户方便的在`k8s`环境中启动一条`CITA-Cloud`链。本工具会为链的每一个节点生成必须的配置文件，以及用于部署到`k8s`的`yaml`文件。
 
 ### 依赖
 
@@ -39,9 +39,9 @@ optional arguments:
 
 `cita-cloud`分为六个微服务：`network`, `consensus`, `executor`, `storage`, `controller`, `kms`。
 
-每个微服务都可能有多个不同的实现，`service-config.toml`用来配置每个微服务分别选择哪些实现，已经相应的启动命令。
+每个微服务都可能有多个不同的实现，`service-config.toml`用来配置每个微服务分别选择哪些实现，以及相应的启动命令。
 
-目前有的微服务实现有：
+目前微服务的实现有：
 
 1. `network`。目前只有`network_p2p`这一个实现，选择该实现，需要将`is_need_network_key`设置为`true`。
 2. `consensus`。目前有`consensus_raft`一个实现。

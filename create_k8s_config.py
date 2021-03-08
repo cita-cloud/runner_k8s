@@ -213,6 +213,10 @@ def gen_kms_account(dir, kms_docker_image):
     with open(path, 'wt') as stream:
         stream.write(key_id)
 
+    path = os.path.join(dir, 'node_address')
+    with open(path, 'wt') as stream:
+        stream.write(address)
+
     return address
 
 
@@ -256,6 +260,11 @@ def gen_init_sysconfig(work_dir, peers_count, kms_password, kms_docker_image):
         path = os.path.join("{0}/node{1}".format(work_dir, i), 'init_sys_config.toml')
         with open(path, 'wt') as stream:
             toml.dump(init_sys_config, stream)
+
+    # clean key_file for peers
+    for i in range(peers_count):
+        path = os.path.join("{0}/node{1}".format(work_dir, i), 'key_file')
+        os.remove(path)
 
 
 # generate sync peers info by pod name

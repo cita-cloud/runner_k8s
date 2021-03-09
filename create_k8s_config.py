@@ -17,6 +17,8 @@ DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
 DEFAULT_BLOCK_INTERVAL = 6
 
+DEFAULT_IMAGEPULLPOLICY = 'Always'
+
 SERVICE_LIST = [
     'network',
     'consensus',
@@ -430,6 +432,7 @@ def gen_node_pod(i, args, service_config):
     containers = [
         {
             'image': SYNCTHING_DOCKER_IMAGE,
+            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
             'name': 'syncthing',
             'ports': [
                  {
@@ -465,6 +468,7 @@ def gen_node_pod(i, args, service_config):
         if service['name'] == 'network':
             network_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {
@@ -500,6 +504,7 @@ def gen_node_pod(i, args, service_config):
         elif service['name'] == 'consensus':
             consensus_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {
@@ -525,6 +530,7 @@ def gen_node_pod(i, args, service_config):
         elif service['name'] == 'executor':
             executor_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {
@@ -559,6 +565,7 @@ def gen_node_pod(i, args, service_config):
                 if "chaincode_ext" in service['docker_image']:
                     state_db_container = {
                         'image': "couchdb",
+                        'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                         'name': "couchdb",
                         'ports': [
                             {
@@ -596,6 +603,7 @@ def gen_node_pod(i, args, service_config):
         elif service['name'] == 'storage':
             storage_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {
@@ -621,6 +629,7 @@ def gen_node_pod(i, args, service_config):
         elif service['name'] == 'controller':
             controller_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {
@@ -646,6 +655,7 @@ def gen_node_pod(i, args, service_config):
         elif service['name'] == 'kms':
             kms_container = {
                 'image': service['docker_image'],
+                'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                 'name': service['name'],
                 'ports': [
                     {

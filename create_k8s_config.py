@@ -204,6 +204,7 @@ def gen_kms_account(dir, kms_docker_image):
     cmd = 'docker run --rm -e PUID=$(id -u $USER) -e PGID=$(id -g $USER) -v {0}:{0} -w {0} {1} kms create -k key_file'.format(dir, kms_docker_image)
     kms_create = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output = kms_create.stdout.readlines()[-1].decode().strip()
+    print("kms create output:", output)
     # output should looks like: key_id:1,address:0xba21324990a2feb0a0b6ca16b444b5585b841df9
     infos = output.split(',')
     key_id = infos[0].split(':')[1]

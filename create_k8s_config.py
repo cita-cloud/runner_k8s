@@ -600,7 +600,7 @@ def gen_node_pod(i, args, service_config):
                         '-c',
                         executor_ext_cmd,
                     ]
-                containers.append(executor_container)
+            containers.append(executor_container)
         elif service['name'] == 'storage':
             storage_container = {
                 'image': service['docker_image'],

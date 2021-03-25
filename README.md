@@ -10,11 +10,11 @@
 ### 使用方法
 
 ```
-$ ./create_k8s_config.py local_cluster -h                                   
+$ ./create_k8s_config.py local_cluster -h
 usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
                                           [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD] [--state_db_user STATE_DB_USER]
                                           [--state_db_password STATE_DB_PASSWORD] [--service_config SERVICE_CONFIG]
-                                          [--data_dir DATA_DIR]
+                                          [--data_dir DATA_DIR] [--node_port NODE_PORT]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -33,6 +33,8 @@ optional arguments:
   --service_config SERVICE_CONFIG
                         Config file about service information.
   --data_dir DATA_DIR   Root data dir where store data of each node.
+  --node_port NODE_PORT
+                        The node port of rpc.
 ```
 
 ### 生成配置
@@ -73,7 +75,7 @@ docker@minikube:~$ exit
 $ scp -i ~/.minikube/machines/minikube/id_rsa -r ./node* docker@`minikube ip`:~/cita-cloud-datadir/
 $ kubectl apply -f test-chain.yaml
 secret/kms-secret created
-service/test-chain-loadbalancer created
+service/test-chain-node-port created
 secret/node0-network-secret created
 service/test-chain-0 created
 pod/test-chain-0 created
@@ -102,12 +104,10 @@ docker@minikube:~$ tail -10f cita-cloud-datadir/node0/logs/controller-service.lo
 2020-08-27T07:42:46.319058783+00:00 INFO controller - reconfigure consensus!
 ```
 
-映射`RPC`端口，然后可以进行一些测试。
+查看`RPC`的对外`IP`和端口。
 
 ```
-$ kubectl port-forward svc/test-chain-loadbalancer 50004:50004
-Forwarding from 127.0.0.1:50004 -> 50004
-Forwarding from [::1]:50004 -> 50004
+kubectl get svc | grep test-chain-node-port
 ```
 
 映射`chaincode`端口
@@ -122,7 +122,7 @@ Forwarding from [::1]:7052 -> 7052
 ```
 $ kubectl delete -f test-chain.yaml 
 secret "kms-secret" deleted
-service "test-chain-loadbalancer" deleted
+service "test-chain-node-port" deleted
 secret "node0-network-secret" deleted
 service "test-chain-0" deleted
 pod "test-chain-0" deleted

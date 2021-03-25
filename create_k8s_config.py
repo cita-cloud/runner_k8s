@@ -79,6 +79,12 @@ def parse_arguments():
     plocal_cluster.add_argument(
         '--data_dir', default='/home/docker/cita-cloud-datadir', help='Root data dir where store data of each node.')
 
+    plocal_cluster.add_argument(
+        '--node_port',
+        type=int,
+        default=30004,
+        help='The node port of rpc.')
+
     args = parser.parse_args()
 
     return args
@@ -348,19 +354,20 @@ def gen_kms_secret(kms_password):
     return secret
 
 
-def gen_grpc_service(chain_name):
+def gen_grpc_service(chain_name, node_port):
     grpc_service = {
         'apiVersion': 'v1',
         'kind': 'Service',
         'metadata': {
-            'name': '{}-loadbalancer'.format(chain_name)
+            'name': '{}-node-port'.format(chain_name)
         },
         'spec': {
-            'type': 'LoadBalancer',
+            'type': 'NodePort',
             'ports': [
                  {
                      'port': 50004,
-                     'targetPort': 50004
+                     'targetPort': 50004,
+                     'nodePort': node_port
                  }
             ],
             'selector': {
@@ -793,7 +800,7 @@ def run_subcmd_local_cluster(args, work_dir):
     k8s_config = []
     kms_secret = gen_kms_secret(args.kms_password)
     k8s_config.append(kms_secret)
-    grpc_service = gen_grpc_service(args.chain_name)
+    grpc_service = gen_grpc_service(args.chain_name, args.node_port)
     k8s_config.append(grpc_service)
     for i in range(args.peers_count):
         netwok_secret = gen_network_secret(i)

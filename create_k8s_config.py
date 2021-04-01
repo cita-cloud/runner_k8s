@@ -732,6 +732,7 @@ def gen_node_pod(i, args, service_config):
             }
         },
         'spec': {
+            'shareProcessNamespace': True,
             'containers': containers,
             'volumes': volumes,
         }

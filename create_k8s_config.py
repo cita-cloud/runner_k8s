@@ -85,6 +85,12 @@ def parse_arguments():
         default=30004,
         help='The node port of rpc.')
 
+    plocal_cluster.add_argument(
+        '--need_monitor',
+        type=bool,
+        default=False,
+        help='Is need monitor')
+
     args = parser.parse_args()
 
     return args
@@ -364,11 +370,18 @@ def gen_grpc_service(chain_name, node_port):
         'spec': {
             'type': 'NodePort',
             'ports': [
-                 {
-                     'port': 50004,
-                     'targetPort': 50004,
-                     'nodePort': node_port
-                 }
+                {
+                    'port': 50004,
+                    'targetPort': 50004,
+                    'nodePort': node_port,
+                    'name': 'rpc',
+                },
+                {
+                    'port': 7053,
+                    'targetPort': 7053,
+                    'nodePort': node_port + 1,
+                    'name': 'eventhub',
+                },
             ],
             'selector': {
                 'chain_name': chain_name
@@ -431,12 +444,44 @@ def gen_network_service(i, chain_name):
     }
     return network_service
 
+def gen_monitor_service(i, chain_name, node_port):
+    monitor_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'name': 'monitor-{}-{}'.format(chain_name, i)
+        },
+        'spec': {
+            'type': 'NodePort',
+            'ports': [
+                {
+                    'port': 9256,
+                    'targetPort': 9256,
+                    'nodePort': node_port + 2 + 2 * i,
+                    'name': 'process',
+                },
+                {
+                    'port': 9349,
+                    'targetPort': 9349,
+                    'nodePort': node_port + 2 + 2 * i + 1,
+                    'name': 'exporter',
+                },
+            ],
+            'selector': {
+                'node_name': get_node_pod_name(i, chain_name)
+            }
+        }
+    }
+    return monitor_service
+
 
 def gen_node_pod(i, args, service_config):
     chain_name = args.chain_name
     data_dir = args.data_dir
     state_db_user = args.state_db_user
     state_db_password = args.state_db_password
+    is_need_monitor = args.need_monitor
+
     containers = [
         {
             'image': SYNCTHING_DOCKER_IMAGE,
@@ -570,6 +615,12 @@ def gen_node_pod(i, args, service_config):
                     'name': 'chaincode',
                 }
                 executor_container['ports'].append(chaincode_port)
+                eventhub_port = {
+                    'containerPort': 7053,
+                    'protocol': 'TCP',
+                    'name': 'eventhub',
+                }
+                executor_container['ports'].append(eventhub_port)
                 if "chaincode_ext" in service['docker_image']:
                     state_db_container = {
                         'image': "couchdb",
@@ -695,6 +746,62 @@ def gen_node_pod(i, args, service_config):
             print("unexpected service")
             sys.exit(1)
 
+    if is_need_monitor:
+        monitor_process_container = {
+            'image': 'citacloud/monitor-process-exporter:0.4.0',
+            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
+            'name': 'monitor-process',
+            'ports': [
+                {
+                    'containerPort': 9256,
+                    'protocol': 'TCP',
+                    'name': 'process',
+                }
+            ],
+            'args': [
+                '--procfs',
+                '/proc',
+                '--config.path',
+                '/config/process_list.yml'
+            ],
+            'workingDir': '/data',
+            'volumeMounts': [
+                {
+                    'name': 'datadir',
+                    'mountPath': '/data',
+                },
+            ],
+        }
+        containers.append(monitor_process_container)
+        monitor_citacloud_container = {
+            'image': 'citacloud/monitor-citacloud-exporter:0.1.0',
+            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
+            'name': 'monitor-citacloud',
+            'ports': [
+                {
+                    'containerPort': 9349,
+                    'protocol': 'TCP',
+                    'name': 'exporter',
+                }
+            ],
+            'args': [
+                "--node-grpc-host",
+                "localhost",
+                "--node-grpc-port",
+                "50004",
+                "--node-data-folder",
+                ".",
+            ],
+            'workingDir': '/data',
+            'volumeMounts': [
+                {
+                    'name': 'datadir',
+                    'mountPath': '/data',
+                },
+            ],
+        }
+        containers.append(monitor_citacloud_container)
+
     volumes = [
         {
             'name': 'datadir',
@@ -810,6 +917,10 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(network_service)
         pod = gen_node_pod(i, args, service_config)
         k8s_config.append(pod)
+        if args.need_monitor:
+            monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
+            k8s_config.append(monitor_service)
+
     # write k8s_config to yaml file
     yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))
     print("yaml_ptah:{}", yaml_ptah)

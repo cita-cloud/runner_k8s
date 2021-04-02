@@ -14,7 +14,7 @@ $ ./create_k8s_config.py local_cluster -h
 usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
                                           [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD] [--state_db_user STATE_DB_USER]
                                           [--state_db_password STATE_DB_PASSWORD] [--service_config SERVICE_CONFIG]
-                                          [--data_dir DATA_DIR] [--node_port NODE_PORT]
+                                          [--data_dir DATA_DIR] [--node_port NODE_PORT]  [--need_monitor NEED_MONITOR]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -35,6 +35,8 @@ optional arguments:
   --data_dir DATA_DIR   Root data dir where store data of each node.
   --node_port NODE_PORT
                         The node port of rpc.
+  --need_monitor NEED_MONITOR
+                        Is need monitor
 ```
 
 ### 生成配置
@@ -63,6 +65,20 @@ node0  node1 node2  test-chain.yaml
 ```
 
 `node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+
+### Node Port
+
+为了方便客户端使用，需要暴露到集群外的端口都设置了固定的端口号。同时为了防止在一个集群中部署多条链时引起端口冲突，通过`node_port`参数传递起始端口号，各个需要暴露的端口号依如下次序递增：
+
+1. `RPC`端口为`node_port`参数的值。
+2. `eventhub`端口为`node_port + 1`。
+3. 如果`need_monitor`设置为`true`，每个节点会有两个`monitor`端口，分别是`process`和`exporter`。他们的端口号分别为`node_port + 2 + 2 * i`和`node_port + 2 + 2 * i + 1`
+
+以`node_port`参数默认值30004为例：
+
+1. `RPC`端口为30004。
+2. `eventhub`端口为30005。
+3. 如果`need_monitor`设置为`true`，以链有三个节点为例。节点0的`process`端口为30006，节点0的`exporter`端口为30007；节点1的`process`端口为30008，节点1的`exporter`端口为30009；节点2的`process`端口为30010，节点0的`exporter`端口为30011。
 
 ### 部署
 
@@ -102,19 +118,6 @@ docker@minikube:~$ tail -10f cita-cloud-datadir/node0/logs/controller-service.lo
 2020-08-27T07:42:43.385154627+00:00 INFO controller::controller - add block
 2020-08-27T07:42:43.386148650+00:00 INFO controller::chain - add block 0x 11cf7..cad9
 2020-08-27T07:42:46.319058783+00:00 INFO controller - reconfigure consensus!
-```
-
-查看`RPC`的对外`IP`和端口。
-
-```
-kubectl get svc | grep test-chain-node-port
-```
-
-映射`chaincode`端口
-```
-$ kubectl port-forward pod/test-chain-0 7052:7052
-Forwarding from 127.0.0.1:7052 -> 7052
-Forwarding from [::1]:7052 -> 7052
 ```
 
 停止

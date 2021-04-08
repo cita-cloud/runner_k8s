@@ -17,7 +17,7 @@ DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
 DEFAULT_BLOCK_INTERVAL = 6
 
-DEFAULT_IMAGEPULLPOLICY = 'Always'
+DEFAULT_IMAGEPULLPOLICY = 'IfNotPresent'
 
 SERVICE_LIST = [
     'network',
@@ -28,7 +28,7 @@ SERVICE_LIST = [
     'kms',
 ]
 
-SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
+SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:1.15'
 
 SYNC_FOLDERS = [
     'blocks',
@@ -654,7 +654,7 @@ def gen_node_pod(i, args, service_config):
                 executor_container['ports'].append(eventhub_port)
                 if "chaincode_ext" in service['docker_image']:
                     state_db_container = {
-                        'image': "couchdb",
+                        'image': "couchdb:3.1.1",
                         'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                         'name': "couchdb",
                         'ports': [

@@ -72,13 +72,14 @@ node0  node1 node2  test-chain.yaml
 
 1. `RPC`端口为`node_port`参数的值。
 2. `eventhub`端口为`node_port + 1`。
-3. 如果`need_monitor`设置为`true`，每个节点会有两个`monitor`端口，分别是`process`和`exporter`。他们的端口号分别为`node_port + 2 + 2 * i`和`node_port + 2 + 2 * i + 1`
+3. 如果`need_monitor`设置为`true`，每个节点会有两个`monitor`端口，分别是`process`和`exporter`。它们的端口号分别为`node_port + 2 + 3 * i`和`node_port + 2 + 3 * i + 1`。
+4. 如果`executor`为`chaincode`。每个节点会有一个`chaincode`端口。它们的端口是`node_port + 2 + 3 * i + 2`
 
 以`node_port`参数默认值30004为例：
 
 1. `RPC`端口为30004。
 2. `eventhub`端口为30005。
-3. 如果`need_monitor`设置为`true`，以链有三个节点为例。节点0的`process`端口为30006，节点0的`exporter`端口为30007；节点1的`process`端口为30008，节点1的`exporter`端口为30009；节点2的`process`端口为30010，节点0的`exporter`端口为30011。
+3. 如果`need_monitor`设置为`true`，且`executor`为`chaincode`，以链有三个节点为例。节点0的`process`端口为30006，节点0的`exporter`端口为30007，节点0的`chaincode`端口为30008；节点1的`process`端口为30009，节点1的`exporter`端口为30010，节点1的`chaincode`端口为30011；节点2的`process`端口为30012，节点0的`exporter`端口为30013，节点1的`chaincode`端口为30014。
 
 ### 部署
 

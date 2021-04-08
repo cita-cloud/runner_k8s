@@ -430,11 +430,6 @@ def gen_network_service(i, chain_name):
                     'port': 8384,
                     'targetPort': 8384,
                     'name': 'gui',
-                },
-                {
-                    'port': 7052,
-                    'targetPort': 7052,
-                    'name': 'chaincode',
                 }
             ],
             'selector': {
@@ -457,14 +452,38 @@ def gen_monitor_service(i, chain_name, node_port):
                 {
                     'port': 9256,
                     'targetPort': 9256,
-                    'nodePort': node_port + 2 + 2 * i,
+                    'nodePort': node_port + 2 + 3 * i,
                     'name': 'process',
                 },
                 {
                     'port': 9349,
                     'targetPort': 9349,
-                    'nodePort': node_port + 2 + 2 * i + 1,
+                    'nodePort': node_port + 2 + 3 * i + 1,
                     'name': 'exporter',
+                },
+            ],
+            'selector': {
+                'node_name': get_node_pod_name(i, chain_name)
+            }
+        }
+    }
+    return monitor_service
+
+def gen_chaincode_service(i, chain_name, node_port):
+    monitor_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'name': 'chaincode-{}-{}'.format(chain_name, i)
+        },
+        'spec': {
+            'type': 'NodePort',
+            'ports': [
+                {
+                    'port': 7052,
+                    'targetPort': 7052,
+                    'nodePort': node_port + 2 + 3 * i + 2,
+                    'name': 'chaincode',
                 },
             ],
             'selector': {
@@ -904,6 +923,10 @@ def run_subcmd_local_cluster(args, work_dir):
     print("sync_peers:", sync_peers)
     gen_sync_configs(work_dir, sync_peers, args.chain_name)
 
+    # is chaincode executor
+    executor_docker_image = find_docker_image(service_config, "executor")
+    is_chaincode_executor = "chaincode" in executor_docker_image
+
     # generate k8s yaml
     k8s_config = []
     kms_secret = gen_kms_secret(args.kms_password)
@@ -920,6 +943,9 @@ def run_subcmd_local_cluster(args, work_dir):
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
             k8s_config.append(monitor_service)
+        if is_chaincode_executor:
+            chaincode_service = gen_chaincode_service(i, args.chain_name, args.node_port)
+            k8s_config.append(chaincode_service)
 
     # write k8s_config to yaml file
     yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))

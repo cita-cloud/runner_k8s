@@ -91,6 +91,12 @@ def parse_arguments():
         default=False,
         help='Is need monitor')
 
+    plocal_cluster.add_argument(
+        '--nfs_server', help='Address of nfs server.')
+
+    plocal_cluster.add_argument(
+        '--nfs_path', help='Path of nfs .')
+
     args = parser.parse_args()
 
     return args
@@ -207,11 +213,10 @@ prevhash = \"{}\"
 '''
 
 
-def gen_genesis(work_dir, timestamp, prevhash, peers_count):
-    for i in range(peers_count):
-        path = os.path.join("{0}/node{1}".format(work_dir, i), 'genesis.toml')
-        with open(path, 'wt') as stream:
-            stream.write(GENESIS_TEMPLATE.format(timestamp, prevhash))
+def gen_genesis(node_path, timestamp, prevhash):
+    path = os.path.join(node_path, 'genesis.toml')
+    with open(path, 'wt') as stream:
+        stream.write(GENESIS_TEMPLATE.format(timestamp, prevhash))
 
 
 def gen_kms_account(dir, kms_docker_image):
@@ -243,16 +248,16 @@ validators = [\"0x010928818c840630a60b4fda06848cac541599462f\"]
 '''
 
 
-def gen_init_sysconfig(work_dir, peers_count, kms_password, kms_docker_image):
+def gen_init_sysconfig(work_dir, chain_name, peers_count, kms_password, kms_docker_image):
     # set key_file
     # for admin
-    path = os.path.join(work_dir, 'key_file')
+    path = os.path.join(work_dir, 'cita-cloud/{}/key_file'.format(chain_name))
     with open(path, 'wt') as stream:
         stream.write(kms_password)
 
     # for all peers
     for i in range(peers_count):
-        path = os.path.join("{0}/node{1}".format(work_dir, i), 'key_file')
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
         with open(path, 'wt') as stream:
             stream.write(kms_password)
 
@@ -261,24 +266,24 @@ def gen_init_sysconfig(work_dir, peers_count, kms_password, kms_docker_image):
     init_sys_config['validators'] = []
 
     # generate admin account
-    admin_addr = gen_kms_account(work_dir, kms_docker_image)
+    admin_addr = gen_kms_account("{0}/cita-cloud/{1}".format(work_dir, chain_name), kms_docker_image)
     init_sys_config['admin'] = admin_addr
 
     # generate account for all peers
     for i in range(peers_count):
-        path = "{0}/node{1}".format(work_dir, i)
+        path = "{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i)
         addr = gen_kms_account(path, kms_docker_image)
         init_sys_config['validators'].append(addr)
 
     # write init_sys_config.toml into peers
     for i in range(peers_count):
-        path = os.path.join("{0}/node{1}".format(work_dir, i), 'init_sys_config.toml')
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'init_sys_config.toml')
         with open(path, 'wt') as stream:
             toml.dump(init_sys_config, stream)
 
     # clean key_file for peers
     for i in range(peers_count):
-        path = os.path.join("{0}/node{1}".format(work_dir, i), 'key_file')
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
         os.remove(path)
 
 
@@ -288,7 +293,7 @@ def gen_sync_peers(work_dir, count, chain_name):
     device_id_len = 63
     peers = []
     for i in range(count):
-        cmd = 'docker run --rm -e PUID=$(id -u $USER) -e PGID=$(id -g $USER) -v {0}:{0} {1} -generate="{0}/node{2}/config"'.format(work_dir, SYNCTHING_DOCKER_IMAGE, i)
+        cmd = 'docker run --rm -e PUID=$(id -u $USER) -e PGID=$(id -g $USER) -v {0}:{0} {1} -generate="{0}/cita-cloud/{2}/node{3}/config"'.format(work_dir, SYNCTHING_DOCKER_IMAGE, chain_name, i)
         syncthing_gen = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output = str(syncthing_gen.stdout.read())
         mark_index = output.index(mark_str)
@@ -339,7 +344,7 @@ def gen_sync_configs(work_dir, sync_peers, chain_name):
         apikey = ET.SubElement(gui, 'apikey')
         apikey.text = chain_name
 
-        config_example.write(os.path.join(work_dir, 'node{}/config/config.xml'.format(i)))
+        config_example.write(os.path.join(work_dir, 'cita-cloud/{}/node{}/config/config.xml'.format(chain_name, i)))
 
 
 def gen_kms_secret(kms_password):
@@ -500,42 +505,46 @@ def gen_node_pod(i, args, service_config):
     state_db_user = args.state_db_user
     state_db_password = args.state_db_password
     is_need_monitor = args.need_monitor
+    nfs_server = args.nfs_server
+    nfs_path = args.nfs_path
+    is_nfs = nfs_server and nfs_path
 
-    containers = [
-        {
-            'image': SYNCTHING_DOCKER_IMAGE,
-            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
-            'name': 'syncthing',
-            'ports': [
-                 {
-                     'containerPort': 22000,
-                     'protocol': 'TCP',
-                     'name': 'sync',
-                 },
-                 {
-                     'containerPort': 8384,
-                     'protocol': 'TCP',
-                     'name': 'gui',
-                 }
-            ],
-            'volumeMounts': [
+    containers = []
+    syncthing_container = {
+        'image': SYNCTHING_DOCKER_IMAGE,
+        'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
+        'name': 'syncthing',
+        'ports': [
                 {
-                    'name': 'datadir',
-                    'mountPath': '/var/syncthing',
+                    'containerPort': 22000,
+                    'protocol': 'TCP',
+                    'name': 'sync',
+                },
+                {
+                    'containerPort': 8384,
+                    'protocol': 'TCP',
+                    'name': 'gui',
                 }
-            ],
-            'env': [
-                {
-                    'name': 'PUID',
-                    'value': '0',
-                },
-                {
-                    'name': 'PGID',
-                    'value': '0',
-                },
-            ]
-        }
-    ]
+        ],
+        'volumeMounts': [
+            {
+                'name': 'datadir',
+                'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
+                'mountPath': '/var/syncthing',
+            }
+        ],
+        'env': [
+            {
+                'name': 'PUID',
+                'value': '0',
+            },
+            {
+                'name': 'PGID',
+                'value': '0',
+            },
+        ]
+    }
+    containers.append(syncthing_container)
     for service in service_config['services']:
         if service['name'] == 'network':
             network_container = {
@@ -563,6 +572,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                     {
@@ -594,6 +604,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                 ],
@@ -620,6 +631,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                 ],
@@ -654,7 +666,8 @@ def gen_node_pod(i, args, service_config):
                         ],
                         'volumeMounts': [
                             {
-                                'name': 'state-datadir',
+                                'name': 'datadir',
+                                'subPath': 'cita-cloud/{}/node{}/state-data'.format(chain_name, i),
                                 'mountPath': '/opt/couchdb/data',
                             },
                         ],
@@ -699,6 +712,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                 ],
@@ -725,6 +739,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                 ],
@@ -751,6 +766,7 @@ def gen_node_pod(i, args, service_config):
                 'volumeMounts': [
                     {
                         'name': 'datadir',
+                        'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                         'mountPath': '/data',
                     },
                     {
@@ -787,6 +803,7 @@ def gen_node_pod(i, args, service_config):
             'volumeMounts': [
                 {
                     'name': 'datadir',
+                    'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                     'mountPath': '/data',
                 },
             ],
@@ -815,6 +832,7 @@ def gen_node_pod(i, args, service_config):
             'volumeMounts': [
                 {
                     'name': 'datadir',
+                    'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
                     'mountPath': '/data',
                 },
             ],
@@ -822,18 +840,6 @@ def gen_node_pod(i, args, service_config):
         containers.append(monitor_citacloud_container)
 
     volumes = [
-        {
-            'name': 'datadir',
-            'hostPath': {
-                'path': '{}/node{}'.format(data_dir, i)
-            }
-        },
-        {
-            'name': 'state-datadir',
-            'hostPath': {
-                'path': '{}/node{}/state-data'.format(data_dir, i)
-            }
-        },
         {
             'name': 'kms-key',
             'secret': {
@@ -847,6 +853,22 @@ def gen_node_pod(i, args, service_config):
             }
         },
     ]
+    if is_nfs:
+        data_dir_volume ={
+            'name': 'datadir',
+            'nfs': {
+                'path': nfs_path,
+                'server': nfs_server,
+            }
+        }
+    else:
+        data_dir_volume ={
+            'name': 'datadir',
+            'hostPath': {
+                'path': data_dir
+            }
+        }
+    volumes.append(data_dir_volume)
     pod = {
         'apiVersion': 'v1',
         'kind': 'Pod',
@@ -900,8 +922,9 @@ def run_subcmd_local_cluster(args, work_dir):
     print("net_config_list:", net_config_list)
 
     # generate node config
+    timestamp = int(time.time() * 1000)
     for index, net_config in enumerate(net_config_list):
-        node_path = os.path.join(work_dir, 'node{}'.format(index))
+        node_path = os.path.join(work_dir, 'cita-cloud/{}/node{}'.format(args.chain_name, index))
         need_directory(node_path)
         # generate network config file
         net_config_file = os.path.join(node_path, 'network-config.toml')
@@ -911,12 +934,13 @@ def run_subcmd_local_cluster(args, work_dir):
         gen_log4rs_config(node_path)
         gen_consensus_config(node_path, index)
         gen_controller_config(node_path, args.block_delay_number)
+        # generate genesis
+        gen_genesis(node_path, timestamp, DEFAULT_PREVHASH)
+
 
     # generate genesis and init_sys_config
-    timestamp = int(time.time() * 1000)
-    gen_genesis(work_dir, timestamp, DEFAULT_PREVHASH, args.peers_count)
     kms_docker_image = find_docker_image(service_config, "kms")
-    gen_init_sysconfig(work_dir, args.peers_count, args.kms_password, kms_docker_image)
+    gen_init_sysconfig(work_dir, args.chain_name, args.peers_count, args.kms_password, kms_docker_image)
 
     # generate syncthing config
     sync_peers = gen_sync_peers(work_dir, args.peers_count, args.chain_name)

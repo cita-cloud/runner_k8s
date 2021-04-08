@@ -12,9 +12,10 @@
 ```
 $ ./create_k8s_config.py local_cluster -h
 usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
-                                          [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD] [--state_db_user STATE_DB_USER]
-                                          [--state_db_password STATE_DB_PASSWORD] [--service_config SERVICE_CONFIG]
-                                          [--data_dir DATA_DIR] [--node_port NODE_PORT]  [--need_monitor NEED_MONITOR]
+                                          [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD]
+                                          [--state_db_user STATE_DB_USER] [--state_db_password STATE_DB_PASSWORD]
+                                          [--service_config SERVICE_CONFIG] [--data_dir DATA_DIR] [--node_port NODE_PORT]
+                                          [--need_monitor NEED_MONITOR] [--nfs_server NFS_SERVER] [--nfs_path NFS_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -37,6 +38,10 @@ optional arguments:
                         The node port of rpc.
   --need_monitor NEED_MONITOR
                         Is need monitor
+  --nfs_server NFS_SERVER
+                        Address of nfs server.
+  --nfs_path NFS_PATH   Path of nfs .
+
 ```
 
 ### 生成配置
@@ -61,10 +66,32 @@ optional arguments:
 ```shell
 $ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --state_db_user citacloud --state_db_password 123456
 $ ls
-node0  node1 node2  test-chain.yaml
+cita-cloud  test-chain.yaml
 ```
 
-`node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+生成的`cita-cloud`目录结构如下：
+```
+$ tree cita-cloud
+cita-cloud
+└── test-chain
+    ├── node0
+    ├── node1
+    ├── node2
+```
+
+最外层是`cita-cloud`；第二层是链的名称，跟`chain_name`参数保持一致；最里面是各个节点的文件夹。
+
+`node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。
+
+`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+
+
+### NFS
+默认的文件挂载方式是`hostPath`，这个只能用于测试。
+
+正式生产环境请使用`nfs`,通过`nfs_server`和`nfs_path`两个参数传递`NFS`的`ip`和路径。
+
+如果没有设置`nfs`相关的参数，则默认使用`hostPath`，如果设置了`nfs`相关的参数，则优先使用`nfs`。
 
 ### Node Port
 
@@ -89,7 +116,7 @@ node0  node1 node2  test-chain.yaml
 $ minikube ssh
 docker@minikube:~$ mkdir cita-cloud-datadir
 docker@minikube:~$ exit
-$ scp -i ~/.minikube/machines/minikube/id_rsa -r ./node* docker@`minikube ip`:~/cita-cloud-datadir/
+$ scp -i ~/.minikube/machines/minikube/id_rsa -r cita-cloud docker@`minikube ip`:~/cita-cloud-datadir/
 $ kubectl apply -f test-chain.yaml
 secret/kms-secret created
 service/test-chain-node-port created
@@ -108,7 +135,7 @@ pod/test-chain-2 created
 
 ```shell
 $ minikube ssh
-docker@minikube:~$ tail -10f cita-cloud-datadir/node0/logs/controller-service.log  
+docker@minikube:~$ tail -10f cita-cloud-datadir/cita-cloud/test-chain/node0/logs/controller-service.log  
 2020-08-27T07:42:43.280172163+00:00 INFO controller::chain - 1 blocks finalized
 2020-08-27T07:42:43.282871996+00:00 INFO controller::chain - executed block 1397 hash: 0x 16469..e061
 2020-08-27T07:42:43.354375501+00:00 INFO controller::pool - before update len of pool 0, will update 0 tx

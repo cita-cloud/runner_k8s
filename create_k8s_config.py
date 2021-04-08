@@ -926,6 +926,8 @@ def run_subcmd_local_cluster(args, work_dir):
     for index, net_config in enumerate(net_config_list):
         node_path = os.path.join(work_dir, 'cita-cloud/{}/node{}'.format(args.chain_name, index))
         need_directory(node_path)
+        tx_infos_path = os.path.join(work_dir, 'cita-cloud/{}/node{}/tx_infos'.format(args.chain_name, index))
+        need_directory(tx_infos_path)
         # generate network config file
         net_config_file = os.path.join(node_path, 'network-config.toml')
         with open(net_config_file, 'wt') as stream:

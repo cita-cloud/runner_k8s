@@ -381,12 +381,6 @@ def gen_grpc_service(chain_name, node_port):
                     'nodePort': node_port,
                     'name': 'rpc',
                 },
-                {
-                    'port': 7053,
-                    'targetPort': 7053,
-                    'nodePort': node_port + 1,
-                    'name': 'eventhub',
-                },
             ],
             'selector': {
                 'chain_name': chain_name
@@ -457,13 +451,13 @@ def gen_monitor_service(i, chain_name, node_port):
                 {
                     'port': 9256,
                     'targetPort': 9256,
-                    'nodePort': node_port + 2 + 3 * i,
+                    'nodePort': node_port + 1 + 5 * i,
                     'name': 'process',
                 },
                 {
                     'port': 9349,
                     'targetPort': 9349,
-                    'nodePort': node_port + 2 + 3 * i + 1,
+                    'nodePort': node_port + 1 + 5 * i + 1,
                     'name': 'exporter',
                 },
             ],
@@ -487,8 +481,20 @@ def gen_chaincode_service(i, chain_name, node_port):
                 {
                     'port': 7052,
                     'targetPort': 7052,
-                    'nodePort': node_port + 2 + 3 * i + 2,
+                    'nodePort': node_port + 1 + 5 * i + 2,
                     'name': 'chaincode',
+                },
+                {
+                    'port': 7053,
+                    'targetPort': 7053,
+                    'nodePort': node_port + 1 + 5 * i + 3,
+                    'name': 'eventhub',
+                },
+                {
+                    'port': 50002,
+                    'targetPort': 50002,
+                    'nodePort': node_port + 1 + 5 * i + 4,
+                    'name': 'call',
                 },
             ],
             'selector': {

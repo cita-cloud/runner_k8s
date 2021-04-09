@@ -98,15 +98,24 @@ cita-cloud
 为了方便客户端使用，需要暴露到集群外的端口都设置了固定的端口号。同时为了防止在一个集群中部署多条链时引起端口冲突，通过`node_port`参数传递起始端口号，各个需要暴露的端口号依如下次序递增：
 
 1. `RPC`端口为`node_port`参数的值。
-2. `eventhub`端口为`node_port + 1`。
-3. 如果`need_monitor`设置为`true`，每个节点会有两个`monitor`端口，分别是`process`和`exporter`。它们的端口号分别为`node_port + 2 + 3 * i`和`node_port + 2 + 3 * i + 1`。
-4. 如果`executor`为`chaincode`。每个节点会有一个`chaincode`端口。它们的端口是`node_port + 2 + 3 * i + 2`
+2. 如果`need_monitor`设置为`true`，每个节点会有两个`monitor`端口，分别是`process`和`exporter`。它们的端口号分别为`node_port + 1 + 5 * i`和`node_port + 1 + 5 * i + 1`。
+3. 如果`executor`为`chaincode`。每个节点会有：一个`chaincode`端口，端口号是`node_port + 1 + 5 * i + 2`；一个`eventhub`端口，端口号是`node_port + 1 + 5 * i + 3`；一个`call`端口，端口号是`node_port + 1 + 5 * i + 4`；
 
-以`node_port`参数默认值30004为例：
+以`node_port`参数默认值30004，三个节点为例：
 
-1. `RPC`端口为30004。
-2. `eventhub`端口为30005。
-3. 如果`need_monitor`设置为`true`，且`executor`为`chaincode`，以链有三个节点为例。节点0的`process`端口为30006，节点0的`exporter`端口为30007，节点0的`chaincode`端口为30008；节点1的`process`端口为30009，节点1的`exporter`端口为30010，节点1的`chaincode`端口为30011；节点2的`process`端口为30012，节点0的`exporter`端口为30013，节点1的`chaincode`端口为30014。
+```
+test-chain-node-port     50004:30004/TCP  // RPC端口
+
+monitor-test-chain-0     9256:30005/TCP,9349:30006/TCP    // node0的两个监控端口
+monitor-test-chain-1     9256:30010/TCP,9349:30011/TCP    // node1的两个监控端口
+monitor-test-chain-2     9256:30015/TCP,9349:30016/TCP    // node1的两个监控端口
+
+chaincode-test-chain-0   7052:30007/TCP,7053:30008/TCP,50002:30009/TCP   // node0的chaincode相关的三个端口
+chaincode-test-chain-1   7052:30012/TCP,7053:30013/TCP,50002:30014/TCP   // node1的chaincode相关的三个端口
+chaincode-test-chain-2   7052:30017/TCP,7053:30018/TCP,50002:30019/TCP   // node2的chaincode相关的三个端口
+```
+
+注意：无论功能是否打开，相关的端口号都会保留。例如，即使没有打开监控功能，chaincode的端口号依然跟上述例子相同。
 
 ### 部署
 

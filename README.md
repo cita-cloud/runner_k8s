@@ -7,6 +7,12 @@
 * python 3
 * docker
 
+安装依赖包:
+
+```
+pip install -r requirements.txt
+```
+
 ### 使用方法
 
 ```

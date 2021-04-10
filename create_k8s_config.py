@@ -689,6 +689,38 @@ def gen_node_pod(i, args, service_config):
                         ],
                     }
                     containers.append(state_db_container)
+
+                    # add the composer runtime container
+                    composer_container = {
+                        'image': "citacloud/composer-runtime-hlfv1",
+                        'name': "composer",
+                        'args': [
+                            "--peer.address",
+                            "127.0.0.1:7052",
+                        ],
+                        'env': [
+                            {
+                                'name': 'CORE_PEER_LOCALMSPID',
+                                'value': 'Org1MSP',
+                            },
+                            {
+                                'name': 'CORE_PEER_TLS_ENABLED',
+                                'value': 'false',
+                            },
+                            {
+                                'name': 'CORE_CHAINCODE_ID_NAME',
+                                'value': 'BusinessNetworkName',
+                            },
+                        ],
+                        'volumeMounts': [
+                            {
+                                'name': 'datadir',
+                                'subPath': 'cita-cloud/{}/def'.format(chain_name, i),
+                                'mountPath': '/def',
+                            },
+                        ],
+                    }
+                    containers.append(composer_container)
                     # add --couchdb-username username --couchdb-password password
                     executor_ext_cmd = service['cmd'] + " --couchdb-username " + state_db_user + " --couchdb-password " + state_db_password
                     executor_container['command'] = [
@@ -927,6 +959,9 @@ def run_subcmd_local_cluster(args, work_dir):
     net_config_list = gen_net_config_list(peers)
     print("net_config_list:", net_config_list)
 
+    # create def path
+    def_path = os.path.join(work_dir, 'cita-cloud/{}/def'.format(args.chain_name))
+    need_directory(def_path)
     # generate node config
     timestamp = int(time.time() * 1000)
     for index, net_config in enumerate(net_config_list):

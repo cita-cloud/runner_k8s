@@ -17,11 +17,20 @@ pip install -r requirements.txt
 
 ```
 $ ./create_k8s_config.py local_cluster -h
-usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
-                                          [--peers_count PEERS_COUNT] [--kms_password KMS_PASSWORD]
-                                          [--state_db_user STATE_DB_USER] [--state_db_password STATE_DB_PASSWORD]
-                                          [--service_config SERVICE_CONFIG] [--data_dir DATA_DIR] [--node_port NODE_PORT]
-                                          [--need_monitor NEED_MONITOR] [--nfs_server NFS_SERVER] [--nfs_path NFS_PATH]
+usage: create_k8s_config.py local_cluster [-h]
+                                          [--block_delay_number BLOCK_DELAY_NUMBER]
+                                          [--chain_name CHAIN_NAME]
+                                          [--peers_count PEERS_COUNT]
+                                          [--business_network_name BUSINESS_NETWORK_NAME]
+                                          [--kms_password KMS_PASSWORD]
+                                          [--state_db_user STATE_DB_USER]
+                                          [--state_db_password STATE_DB_PASSWORD]
+                                          [--service_config SERVICE_CONFIG]
+                                          [--data_dir DATA_DIR]
+                                          [--node_port NODE_PORT]
+                                          [--need_monitor NEED_MONITOR]
+                                          [--nfs_server NFS_SERVER]
+                                          [--nfs_path NFS_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -31,6 +40,8 @@ optional arguments:
                         The name of chain.
   --peers_count PEERS_COUNT
                         Count of peers.
+  --business_network_name BUSINESS_NETWORK_NAME
+                        The name of the Business Network Definition
   --kms_password KMS_PASSWORD
                         Password of kms.
   --state_db_user STATE_DB_USER
@@ -70,7 +81,8 @@ optional arguments:
 运行命令生成相应的文件。`kms`的密码，`state db`的用户名和密码是必选参数，其他参数使用默认值。
 
 ```shell
-$ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --state_db_user citacloud --state_db_password 123456
+# 请在`--business_network_name`传入所用的业务网络名称，这里默认使用'trade-network'样例。
+$ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --business_network_name 'trade-network' --state_db_user citacloud --state_db_password 123456
 $ ls
 cita-cloud  test-chain.yaml
 ```
@@ -91,6 +103,15 @@ cita-cloud
 
 `test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
 
+为部署业务网络，请将业务网络定义放入链文件夹下的`def`。
+```
+cita-cloud
+└── test-chain
+    ├── def        <--- 创建文件夹后放入，如：mv -r path/to/trade-network/* cita-cloud/test-chain/def
+    ├── node0
+    ├── node1
+    ├── node2
+```
 
 ### NFS
 默认的文件挂载方式是`hostPath`，这个只能用于测试。

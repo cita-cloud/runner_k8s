@@ -468,28 +468,16 @@ def gen_monitor_service(i, chain_name, node_port):
     }
     return monitor_service
 
-def gen_chaincode_service(i, chain_name, node_port):
-    monitor_service = {
+def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
+    executor_service = {
         'apiVersion': 'v1',
         'kind': 'Service',
         'metadata': {
-            'name': 'chaincode-{}-{}'.format(chain_name, i)
+            'name': 'executor-{}-{}'.format(chain_name, i)
         },
         'spec': {
             'type': 'NodePort',
             'ports': [
-                {
-                    'port': 7052,
-                    'targetPort': 7052,
-                    'nodePort': node_port + 1 + 5 * i + 2,
-                    'name': 'chaincode',
-                },
-                {
-                    'port': 7053,
-                    'targetPort': 7053,
-                    'nodePort': node_port + 1 + 5 * i + 3,
-                    'name': 'eventhub',
-                },
                 {
                     'port': 50002,
                     'targetPort': 50002,
@@ -502,7 +490,22 @@ def gen_chaincode_service(i, chain_name, node_port):
             }
         }
     }
-    return monitor_service
+    if is_chaincode_executor:
+        chaincode_port = {
+            'port': 7052,
+            'targetPort': 7052,
+            'nodePort': node_port + 1 + 5 * i + 2,
+            'name': 'chaincode',
+        }
+        eventhub_port = {
+            'port': 7053,
+            'targetPort': 7053,
+            'nodePort': node_port + 1 + 5 * i + 3,
+            'name': 'eventhub',
+        }
+        executor_service['spec']['ports'].append(chaincode_port)
+        executor_service['spec']['ports'].append(eventhub_port)
+    return executor_service
 
 
 def gen_node_pod(i, args, service_config):
@@ -975,9 +978,8 @@ def run_subcmd_local_cluster(args, work_dir):
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
             k8s_config.append(monitor_service)
-        if is_chaincode_executor:
-            chaincode_service = gen_chaincode_service(i, args.chain_name, args.node_port)
-            k8s_config.append(chaincode_service)
+        executor_service = gen_executor_service(i, args.chain_name, args.node_port, is_chaincode_executor)
+        k8s_config.append(executor_service)
 
     # write k8s_config to yaml file
     yaml_ptah = os.path.join(work_dir, '{}.yaml'.format(args.chain_name))

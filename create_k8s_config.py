@@ -65,6 +65,11 @@ def parse_arguments():
         help='Count of peers.')
 
     plocal_cluster.add_argument(
+        '--business_network_name',
+        help='The name of the Business Network Definition',
+    )
+
+    plocal_cluster.add_argument(
         '--kms_password', help='Password of kms.')
 
     plocal_cluster.add_argument(
@@ -508,6 +513,7 @@ def gen_chaincode_service(i, chain_name, node_port):
 def gen_node_pod(i, args, service_config):
     chain_name = args.chain_name
     data_dir = args.data_dir
+    business_network_name = args.business_network_name
     state_db_user = args.state_db_user
     state_db_password = args.state_db_password
     is_need_monitor = args.need_monitor
@@ -709,7 +715,7 @@ def gen_node_pod(i, args, service_config):
                             },
                             {
                                 'name': 'CORE_CHAINCODE_ID_NAME',
-                                'value': 'BusinessNetworkName',
+                                'value': business_network_name,
                             },
                         ],
                         'volumeMounts': [

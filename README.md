@@ -2,6 +2,8 @@
 
 本工具帮助用户方便的在`k8s`环境中启动一条`CITA-Cloud`链。本工具会为链的每一个节点生成必须的配置文件，以及用于部署到`k8s`的`yaml`文件。
 
+## 单集群
+链的所有节点都在同一个`k8s`集群中。
 ### 依赖
 
 * python 3
@@ -180,3 +182,197 @@ service "test-chain-2" deleted
 pod "test-chain-2" deleted
 ```
 
+
+## 多集群
+链的节点分布在多个`k8s`集群中。此部分内容跟单集群部分重复的地方将不再赘述，仅描述差异的内容。
+### 依赖
+
+* python 3
+* [syncthing](https://syncthing.net)
+* [kms_sm](https://github.com/cita-cloud/kms_sm) 或者 [kms_eth](https://github.com/cita-cloud/kms_eth)
+
+安装依赖包:
+
+```
+pip install -r requirements.txt
+```
+
+### 使用方法
+```
+$ ./create_k8s_config.py local_cluster -h
+usage: create_k8s_config.py multi_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME]
+                                          [--service_config SERVICE_CONFIG] [--need_monitor NEED_MONITOR]
+                                          [--timestamp TIMESTAMP] [--super_admin SUPER_ADMIN] [--authorities AUTHORITIES]   
+                                          [--nodes NODES] [--lbs_tokens LBS_TOKENS] [--sync_device_ids SYNC_DEVICE_IDS]     
+                                          [--kms_passwords KMS_PASSWORDS] [--node_ports NODE_PORTS]
+                                          [--nfs_servers NFS_SERVERS] [--nfs_paths NFS_PATHS] [--data_dir DATA_DIR]
+                                          [--state_db_user STATE_DB_USER] [--state_db_password STATE_DB_PASSWORD]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --block_delay_number BLOCK_DELAY_NUMBER
+                        The block delay number of chain.
+  --chain_name CHAIN_NAME
+                        The name of chain.
+  --service_config SERVICE_CONFIG
+                        Config file about service information.
+  --need_monitor NEED_MONITOR
+                        Is need monitor
+  --timestamp TIMESTAMP
+                        Timestamp of genesis block.
+  --super_admin SUPER_ADMIN
+                        Address of super admin.
+  --authorities AUTHORITIES
+                        Authorities (addresses) list.
+  --nodes NODES         Node network ip list.
+  --lbs_tokens LBS_TOKENS
+                        The token list of LBS.
+  --sync_device_ids SYNC_DEVICE_IDS
+                        Device id list of syncthings.
+  --kms_passwords KMS_PASSWORDS
+                        Password list of kms.
+  --node_ports NODE_PORTS
+                        The list of start port of Nodeport.
+  --nfs_servers NFS_SERVERS
+                        The list of nfs servers.
+  --nfs_paths NFS_PATHS
+                        The list of nfs paths.
+  --data_dir DATA_DIR   Root data dir where store data of each node.
+  --state_db_user STATE_DB_USER
+                        User of state db.
+  --state_db_password STATE_DB_PASSWORD
+                        Password of state db.
+```
+
+### 生成配置
+
+多集群模式下只支持`nfs`存储，且要求集群提供`loadBalancer`服务，以便多个集群之间可以通过外部`IP`或域名相互访问。
+
+#### 准备工作
+
+##### 生成`super admin`账户。
+
+```
+$ echo "password" > key_file
+$ ls
+create_account.py  key_file  kms  kms.db  kms-log4rs.yaml  logs
+$ ./create_account.py
+kms create output: key_id:1,address:0x88b3fd84e3b10ac04cd04def0876cb513452c74e
+$ ls
+0x88b3fd84e3b10ac04cd04def0876cb513452c74e  create_account.py  kms  kms-log4rs.yaml  logs
+$ ls 0x88b3fd84e3b10ac04cd04def0876cb513452c74e
+key_file  key_id  kms.db  node_address
+```
+
+`0x88b3fd84e3b10ac04cd04def0876cb513452c74e`为账户地址。
+
+`key_id`和`kms.db`分别保存了账户的`id`和私钥，后续需要使用，所以先归档到以账户地址命名的文件夹中。
+
+使用同样的方法，按照规划的节点数量，为每个节点都生成一个账户地址。
+```
+kms create output: key_id:1,address:0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb
+kms create output: key_id:1,address:0xdff342dadae5abcb4ca9f899c2168ab69f967c85
+kms create output: key_id:1,address:0x914743835c855baf2f59015179f89f4f7f59e3ff
+```
+
+创建这三个节点账号时的密码，也要作为创建配置时的参数。
+
+假设密码分别为：`password0`,`password1`,`password2`。
+
+##### 创建`syncthing`的`device id`。
+
+```
+$ ls
+create_syncthing_config.py
+$ ./create_syncthing_config.py
+device_id: 536EVEY-MZPLRMI-XWOOAXV-OWMHHNC-ZSE25NQ-Z22TZIS-YKPTCKJ-ESBUUQW
+$ ls
+536EVEY-MZPLRMI-XWOOAXV-OWMHHNC-ZSE25NQ-Z22TZIS-YKPTCKJ-ESBUUQW  create_syncthing_config.py
+$ ls 536EVEY-MZPLRMI-XWOOAXV-OWMHHNC-ZSE25NQ-Z22TZIS-YKPTCKJ-ESBUUQW
+cert.pem  key.pem
+```
+
+`536EVEY-MZPLRMI-XWOOAXV-OWMHHNC-ZSE25NQ-Z22TZIS-YKPTCKJ-ESBUUQW`为生成的`device id`。
+
+`cert.pem`和`key.pem`为对应的证书文件，后续需要使用，所以先归档到以`device id`命名的文件夹中。
+
+使用同样的方法，按照规划的节点数量，为每个节点都生成一个`device id`。
+
+```
+device_id: NVSFY4A-Z22XP3J-WHA5GPL-AGFCVVA-IWECW3E-GE34T2O-3MUXT63-LTE6YQP
+device_id: EROQJHV-QCEVWQB-F5ZD72M-ZEIRKGP-XLGJWBL-JQZ44AO-UO7NSWQ-7TK3HQJ
+device_id: MWVAAOD-YGTHWBA-WG2BMRY-GCB5O5V-JR5JYRU-WL5YYEW-5CURT7W-4ZUVEQY
+```
+
+##### 创建集群`loadbanlancer`
+
+此处操作请咨询当前使用的云服务商。
+
+以阿里云为例，创建之后会得到一个集群对外的`ip`和一个形如`lb-hddhfjg****`的`LoadBalancerId`。
+
+这里假设有三个集群，对外`ip`分别为：`cluster0_ip`,`cluster1_ip`,`cluster2_ip`;`LoadBalancerId`分别为：`lb-hddhfjg1234`,`lb-hddhfjg2234`,`lb-hddhfjg3234`。
+
+##### 端口分配
+
+每个节点有8个端口需要暴露到集群之外：
+
+1. 网络 40000
+2. syncthing 22000
+3. rpc 50004
+4. monitor_process 9256
+5. monitor_exporter 9349
+6. executor_call 50002
+7. executor_chaincode 7052
+8. executor_eventhub 7053
+   
+所以需要预留连续的8个端口，然后将起始端口作为创建配置时的参数。
+
+比如，预留端口为30000~30007，则要使用的参数为30000。
+
+##### 安装`NFS`服务
+
+节点的存储使用集群内的`NFS`服务。
+
+需要事先在集群内安装`NFS`服务。记录服务的`ip`和路径，作为创建配置时的参数。
+
+这里假设有三个集群，`nfs_server`的`ip`分别为：`nfs0_ip`,`nfs1_ip`,`nfs2_ip`;路径分别为：`/data/nfs0`,`/data/nfs1`,`/data/nfs2`。
+
+#### 生成配置文件
+
+使用前述准备工作中准备好的信息生成配置文件。
+
+注意：三个集群的各项信息，其顺序一定要保持一致。
+
+```
+$ ./create_k8s_config.py multi_cluster --authorities 0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb,0xdff342dadae5abcb4ca9f899c2168ab69f967c85,0x914743835c855baf2f59015179f89f4f7f59e3ff --nodes cluster0_ip,cluster1_ip,cluster2_ip --lbs_tokens lb-hddhfjg1234,lb-hddhfjg2234,lb-hddhfjg3234 --sync_device_ids NVSFY4A-Z22XP3J-WHA5GPL-AGFCVVA-IWECW3E-GE34T2O-3MUXT63-LTE6YQP,EROQJHV-QCEVWQB-F5ZD72M-ZEIRKGP-XLGJWBL-JQZ44AO-UO7NSWQ-7TK3HQJ,MWVAAOD-YGTHWBA-WG2BMRY-GCB5O5V-JR5JYRU-WL5YYEW-5CURT7W-4ZUVEQY --kms_passwords password0,password1,password2 --node_ports 30000,30000,30000 --nfs_servers nfs0_ip,nfs1_ip,nfs2_ip --nfs_paths /data/nfs0,/data/nfs1,/data/nfs2 --super_admin 0x88b3fd84e3b10ac04cd04def0876cb513452c74e
+$ ls
+cita-cloud  test-chain-0.yaml  test-chain-1.yaml  test-chain-2.yaml
+```
+
+生成的`cita-cloud`目录结构如下：
+```
+$ tree cita-cloud
+cita-cloud
+└── test-chain
+    ├── node0
+    ├── node1
+    ├── node2
+```
+
+三个`yaml`文件分别是用于部署对应节点到`k8s`集群的配置文件。
+
+#### 后续处理
+
+上面生成的配置文件并不完整，还需要将准备阶段归档的文件拷贝进去补充完整。
+
+节点0对应的账户为`0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb`，因此需要将创建该账号时归档的`node_address`,`key_id`和`kms.db`三个文件拷贝到`cita-cloud/test-chain/node0/`下。
+
+节点0对应的`device id`为`NVSFY4A-Z22XP3J-WHA5GPL-AGFCVVA-IWECW3E-GE34T2O-3MUXT63-LTE6YQP`。因此需要将创建该`device id`时归档的`cert.pem`和`key.pem`两个文件拷贝到`cita-cloud/test-chain/node0/config/`下。
+
+其他两个节点采用同样的操作进行处理。
+
+### 部署
+
+将三个节点配置文件夹分别下发到对应集群的`NFS`服务器上，但是注意要保持三层目录结构不变。
+
+在三个`k8s`集群中，分别应用对应节点的`yaml`文件，启动节点。

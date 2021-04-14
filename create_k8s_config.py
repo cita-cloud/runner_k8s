@@ -77,9 +77,6 @@ def parse_arguments():
         '--service_config', default='service-config.toml', help='Config file about service information.')
 
     plocal_cluster.add_argument(
-        '--data_dir', default='/home/docker/cita-cloud-datadir', help='Root data dir where store data of each node.')
-
-    plocal_cluster.add_argument(
         '--node_port',
         type=int,
         default=30004,
@@ -92,10 +89,7 @@ def parse_arguments():
         help='Is need monitor')
 
     plocal_cluster.add_argument(
-        '--nfs_server', help='Address of nfs server.')
-
-    plocal_cluster.add_argument(
-        '--nfs_path', help='Path of nfs .')
+        '--pvc_name', help='Name of persistentVolumeClaim.')
 
     #
     # Subcommand: multi_cluster
@@ -155,13 +149,7 @@ def parse_arguments():
         help='The list of start port of Nodeport.')
 
     pmulti_cluster.add_argument(
-        '--nfs_servers', help='The list of nfs servers.')
-
-    pmulti_cluster.add_argument(
-        '--nfs_paths', help='The list of nfs paths.')
-
-    pmulti_cluster.add_argument(
-        '--data_dir', default='/home/docker/cita-cloud-datadir', help='Root data dir where store data of each node.')
+        '--pvc_names', help='The list of persistentVolumeClaim names.')
 
     pmulti_cluster.add_argument(
         '--state_db_user', default='citacloud', help='User of state db.')
@@ -586,9 +574,7 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_pod(i, service_config, chain_name, data_dir, state_db_user, state_db_password, is_need_monitor, nfs_server, nfs_path, kms_secret_name):
-    is_nfs = nfs_server and nfs_path
-
+def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name):
     containers = []
     syncthing_container = {
         'image': SYNCTHING_DOCKER_IMAGE,
@@ -932,23 +918,13 @@ def gen_node_pod(i, service_config, chain_name, data_dir, state_db_user, state_d
                 'secretName': 'node{}-network-secret'.format(i)
             }
         },
+        {
+            'name': 'datadir',
+            'persistentVolumeClaim': {
+                'claimName': pvc_name,
+            }
+        },
     ]
-    if is_nfs:
-        data_dir_volume ={
-            'name': 'datadir',
-            'nfs': {
-                'path': nfs_path,
-                'server': nfs_server,
-            }
-        }
-    else:
-        data_dir_volume ={
-            'name': 'datadir',
-            'hostPath': {
-                'path': data_dir
-            }
-        }
-    volumes.append(data_dir_volume)
     pod = {
         'apiVersion': 'v1',
         'kind': 'Pod',
@@ -993,6 +969,10 @@ def verify_service_config(service_config):
 def run_subcmd_local_cluster(args, work_dir):
     if not args.kms_password:
         print('kms_password must be set!')
+        sys.exit(1)
+
+    if not args.pvc_name:
+        print('pvc_name must be set!')
         sys.exit(1)
 
     # load service_config
@@ -1055,7 +1035,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, args.nfs_server, args.nfs_path, 'kms-secret')
+        pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret')
         k8s_config.append(pod)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -1170,8 +1150,7 @@ def run_subcmd_multi_cluster(args, work_dir):
     sync_device_ids = args.sync_device_ids.split(',')
     kms_passwords = args.kms_passwords.split(',')
     node_ports = list(map(lambda x : int(x), args.node_ports.split(',')))
-    nfs_servers = args.nfs_servers.split(',')
-    nfs_paths = args.nfs_paths.split(',')
+    pvc_names = args.pvc_names.split(',')
 
     peers_count = len(nodes)
     if len(lbs_tokens) != peers_count:
@@ -1194,12 +1173,8 @@ def run_subcmd_multi_cluster(args, work_dir):
         print('The len of node_ports is invalid')
         sys.exit(1)
     
-    if len(nfs_servers) != peers_count:
-        print('The len of nfs_servers is invalid')
-        sys.exit(1)
-
-    if len(nfs_paths) != peers_count:
-        print('The len of nfs_paths is invalid')
+    if len(pvc_names) != peers_count:
+        print('The len of pvc_names is invalid')
         sys.exit(1)
 
     # generate peers info by pod name
@@ -1246,7 +1221,7 @@ def run_subcmd_multi_cluster(args, work_dir):
         k8s_config.append(kms_secret)
         netwok_secret = gen_network_secret(i)
         k8s_config.append(netwok_secret)
-        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, nfs_servers[i], nfs_paths[i], 'kms-secret-{}'.format(i))
+        pod = gen_node_pod(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret-{}'.format(i))
         k8s_config.append(pod)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i])
         k8s_config.append(all_service)

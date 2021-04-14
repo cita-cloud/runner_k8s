@@ -425,7 +425,7 @@ def gen_sync_configs(work_dir, sync_peers, chain_name):
         config_example.write(os.path.join(work_dir, 'cita-cloud/{}/node{}/config/config.xml'.format(chain_name, i)))
 
 
-def gen_kms_secret(kms_password):
+def gen_kms_secret(kms_password, secret_name):
     bpwd = bytes(kms_password, encoding='utf8')
     b64pwd = base64.b64encode(bpwd)
     b64pwd_str = b64pwd.decode('utf-8')
@@ -433,7 +433,7 @@ def gen_kms_secret(kms_password):
         'apiVersion': 'v1',
         'kind': 'Secret',
         'metadata': {
-            'name': 'kms-secret',
+            'name': secret_name,
         },
         'type': 'Opaque',
         'data': {
@@ -586,7 +586,7 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_pod(i, service_config, chain_name, data_dir, state_db_user, state_db_password, is_need_monitor, nfs_server, nfs_path):
+def gen_node_pod(i, service_config, chain_name, data_dir, state_db_user, state_db_password, is_need_monitor, nfs_server, nfs_path, kms_secret_name):
     is_nfs = nfs_server and nfs_path
 
     containers = []
@@ -923,7 +923,7 @@ def gen_node_pod(i, service_config, chain_name, data_dir, state_db_user, state_d
         {
             'name': 'kms-key',
             'secret': {
-                'secretName': 'kms-secret'
+                'secretName': kms_secret_name
             }
         },
         {
@@ -1046,7 +1046,7 @@ def run_subcmd_local_cluster(args, work_dir):
 
     # generate k8s yaml
     k8s_config = []
-    kms_secret = gen_kms_secret(args.kms_password)
+    kms_secret = gen_kms_secret(args.kms_password, 'kms-secret')
     k8s_config.append(kms_secret)
     grpc_service = gen_grpc_service(args.chain_name, args.node_port)
     k8s_config.append(grpc_service)
@@ -1055,7 +1055,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, args.nfs_server, args.nfs_path)
+        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, args.nfs_server, args.nfs_path, 'kms-secret')
         k8s_config.append(pod)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -1129,19 +1129,19 @@ def gen_all_service(i, chain_name, node_port, token):
                     'port': 50002,
                     'targetPort': 50002,
                     'nodePort': node_port + 5,
-                    'name': 'rpc',
+                    'name': 'call',
                 },
                 {
                     'port': 7052,
                     'targetPort': 7052,
                     'nodePort': node_port + 6,
-                    'name': 'rpc',
+                    'name': 'chaincode',
                 },
                 {
                     'port': 7053,
                     'targetPort': 7053,
                     'nodePort': node_port + 7,
-                    'name': 'rpc',
+                    'name': 'eventhub',
                 },
             ],
             'selector': {
@@ -1242,11 +1242,11 @@ def run_subcmd_multi_cluster(args, work_dir):
     # generate k8s yaml
     for i in range(peers_count):
         k8s_config = []
-        kms_secret = gen_kms_secret(kms_passwords[i])
+        kms_secret = gen_kms_secret(kms_passwords[i], 'kms-secret-{}'.format(i))
         k8s_config.append(kms_secret)
         netwok_secret = gen_network_secret(i)
         k8s_config.append(netwok_secret)
-        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, nfs_servers[i], nfs_paths[i])
+        pod = gen_node_pod(i, service_config, args.chain_name, args.data_dir, args.state_db_user, args.state_db_password, args.need_monitor, nfs_servers[i], nfs_paths[i], 'kms-secret-{}'.format(i))
         k8s_config.append(pod)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i])
         k8s_config.append(all_service)

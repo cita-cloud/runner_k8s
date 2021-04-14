@@ -184,7 +184,7 @@ def gen_net_config_list(peers):
         peers_clone = copy.deepcopy(peers)
         peers_clone.remove(peer)
         net_config = {
-            'port': peer['port'],
+            'port': 40000,
             'peers': peers_clone
         }
         net_config_list.append(net_config)
@@ -1076,51 +1076,43 @@ def gen_all_service(i, chain_name, node_port, token):
             'type': 'LoadBalancer',
             'ports': [
                 {
-                    'port': 40000,
+                    'port': node_port,
                     'targetPort': 40000,
-                    'nodePort': node_port,
                     'name': 'network',
                 },
                 {
-                    'port': 22000,
+                    'port': node_port + 1,
                     'targetPort': 22000,
-                    'nodePort': node_port + 1,
                     'name': 'sync',
                 },
                 {
-                    'port': 50004,
+                    'port': node_port + 2,
                     'targetPort': 50004,
-                    'nodePort': node_port + 2,
                     'name': 'rpc',
                 },
                 {
-                    'port': 9256,
+                    'port': node_port + 3,
                     'targetPort': 9256,
-                    'nodePort': node_port + 3,
                     'name': 'process',
                 },
                 {
-                    'port': 9349,
+                    'port': node_port + 4,
                     'targetPort': 9349,
-                    'nodePort': node_port + 4,
                     'name': 'exporter',
                 },
                 {
-                    'port': 50002,
+                    'port': node_port + 5,
                     'targetPort': 50002,
-                    'nodePort': node_port + 5,
                     'name': 'call',
                 },
                 {
-                    'port': 7052,
+                    'port': node_port + 6,
                     'targetPort': 7052,
-                    'nodePort': node_port + 6,
                     'name': 'chaincode',
                 },
                 {
-                    'port': 7053,
+                    'port': node_port + 7,
                     'targetPort': 7053,
-                    'nodePort': node_port + 7,
                     'name': 'eventhub',
                 },
             ],

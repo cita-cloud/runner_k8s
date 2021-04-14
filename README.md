@@ -140,7 +140,7 @@ $ kubectl apply -f nfs-pvc.yaml
 
 注意：六个微服务缺一不可；每个微服务只能选择一个实现，不能多选。
 
-运行命令生成相应的文件。`kms`的密码，`state db`的用户名和密码是必选参数，其他参数使用默认值。
+运行命令生成相应的文件。`kms`的密码，`pvc`的名字是必选参数，其他参数可以使用默认值。
 
 ```shell
 $ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --pvc_name local-pvc
@@ -162,7 +162,7 @@ cita-cloud
 
 `node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。
 
-`test-chain.yaml`用于将链部署到`k8s`，里面声明了必需的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+`test-chain.yaml`用于将链部署到`k8s`，里面声明了相关的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
 
 ### Node Port
 

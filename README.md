@@ -378,11 +378,12 @@ device_id: MWVAAOD-YGTHWBA-WG2BMRY-GCB5O5V-JR5JYRU-WL5YYEW-5CURT7W-4ZUVEQY
 1. 网络 40000
 2. syncthing 22000
 3. rpc 50004
-4. monitor_process 9256
-5. monitor_exporter 9349
-6. executor_call 50002
+4. executor_call 50002
+5. monitor_process 9256
+6. monitor_exporter 9349
 7. executor_chaincode 7052
 8. executor_eventhub 7053
+9. debug 9999
    
 所以需要预留连续的8个端口，然后将起始端口作为创建配置时的参数。
 

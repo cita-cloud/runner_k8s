@@ -30,6 +30,8 @@ SERVICE_LIST = [
 
 SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
 
+DEBUG_DOCKER_IMAGE = 'subfuzion/netcat'
+
 SYNC_FOLDERS = [
     'blocks',
     'proposals',
@@ -90,6 +92,12 @@ def parse_arguments():
 
     plocal_cluster.add_argument(
         '--pvc_name', help='Name of persistentVolumeClaim.')
+    
+    plocal_cluster.add_argument(
+        '--need_debug',
+        type=bool,
+        default=False,
+        help='Is need debug container')
 
     #
     # Subcommand: multi_cluster
@@ -156,6 +164,12 @@ def parse_arguments():
 
     pmulti_cluster.add_argument(
         '--state_db_password', default='citacloud', help='Password of state db.')
+    
+    pmulti_cluster.add_argument(
+        '--need_debug',
+        type=bool,
+        default=False,
+        help='Is need debug container')
 
     args = parser.parse_args()
     return args
@@ -574,8 +588,33 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name):
+def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug):
     containers = []
+    if is_need_debug:
+        debug_container = {
+            'image': DEBUG_DOCKER_IMAGE,
+            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
+            'name': 'debug',
+            'ports': [
+                    {
+                        'containerPort': 9999,
+                        'protocol': 'TCP',
+                        'name': 'debug',
+                    },
+            ],
+            'args': [
+                '-vlk',
+                '9999',
+            ],
+            'volumeMounts': [
+                {
+                    'name': 'datadir',
+                    'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
+                    'mountPath': '/data',
+                }
+            ],
+        }
+        containers.append(debug_container)
     syncthing_container = {
         'image': SYNCTHING_DOCKER_IMAGE,
         'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
@@ -1035,7 +1074,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret')
+        pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret', args.need_debug)
         k8s_config.append(pod)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -1061,7 +1100,62 @@ def gen_sync_peers_mc(nodes, node_ports, sync_device_ids):
     return list(map(lambda ip, port, device_id: {'ip': ip, 'port': port + 1, 'device_id': device_id}, nodes, node_ports, sync_device_ids))
 
 
-def gen_all_service(i, chain_name, node_port, token):
+def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_debug, is_chaincode_executor):
+    ports = [
+        {
+            'port': node_port,
+            'targetPort': 40000,
+            'name': 'network',
+        },
+        {
+            'port': node_port + 1,
+            'targetPort': 22000,
+            'name': 'sync',
+        },
+        {
+            'port': node_port + 2,
+            'targetPort': 50004,
+            'name': 'rpc',
+        },
+        {
+            'port': node_port + 3,
+            'targetPort': 50002,
+            'name': 'call',
+        },
+    ]
+    if is_need_monitor:
+        process_port = {
+            'port': node_port + 4,
+            'targetPort': 9256,
+            'name': 'process',
+        }
+        ports.append(process_port)
+        exporter_port = {
+            'port': node_port + 5,
+            'targetPort': 9349,
+            'name': 'exporter',
+        }
+        ports.append(exporter_port)
+    if is_chaincode_executor:
+        chaincode_port = {
+            'port': node_port + 6,
+            'targetPort': 7052,
+            'name': 'chaincode',
+        }
+        ports.append(chaincode_port)
+        eventhub_port = {
+            'port': node_port + 7,
+            'targetPort': 7053,
+            'name': 'eventhub',
+        }
+        ports.append(eventhub_port)
+    if is_need_debug:
+        debug_port = {
+            'port': node_port + 8,
+            'targetPort': 9999,
+            'name': 'debug',
+        }
+        ports.append(debug_port)
     all_service = {
         'apiVersion': 'v1',
         'kind': 'Service',
@@ -1074,48 +1168,7 @@ def gen_all_service(i, chain_name, node_port, token):
         },
         'spec': {
             'type': 'LoadBalancer',
-            'ports': [
-                {
-                    'port': node_port,
-                    'targetPort': 40000,
-                    'name': 'network',
-                },
-                {
-                    'port': node_port + 1,
-                    'targetPort': 22000,
-                    'name': 'sync',
-                },
-                {
-                    'port': node_port + 2,
-                    'targetPort': 50004,
-                    'name': 'rpc',
-                },
-                {
-                    'port': node_port + 3,
-                    'targetPort': 9256,
-                    'name': 'process',
-                },
-                {
-                    'port': node_port + 4,
-                    'targetPort': 9349,
-                    'name': 'exporter',
-                },
-                {
-                    'port': node_port + 5,
-                    'targetPort': 50002,
-                    'name': 'call',
-                },
-                {
-                    'port': node_port + 6,
-                    'targetPort': 7052,
-                    'name': 'chaincode',
-                },
-                {
-                    'port': node_port + 7,
-                    'targetPort': 7053,
-                    'name': 'eventhub',
-                },
-            ],
+            'ports': ports,
             'selector': {
                 'node_name': get_node_pod_name(i, chain_name)
             }
@@ -1206,6 +1259,10 @@ def run_subcmd_multi_cluster(args, work_dir):
     print("sync_peers:", sync_peers)
     gen_sync_configs(work_dir, sync_peers, args.chain_name)
 
+    # is chaincode executor
+    executor_docker_image = find_docker_image(service_config, "executor")
+    is_chaincode_executor = "chaincode" in executor_docker_image
+
     # generate k8s yaml
     for i in range(peers_count):
         k8s_config = []
@@ -1213,9 +1270,9 @@ def run_subcmd_multi_cluster(args, work_dir):
         k8s_config.append(kms_secret)
         netwok_secret = gen_network_secret(i)
         k8s_config.append(netwok_secret)
-        pod = gen_node_pod(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret-{}'.format(i))
+        pod = gen_node_pod(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret-{}'.format(i), args.need_debug)
         k8s_config.append(pod)
-        all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i])
+        all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
         k8s_config.append(all_service)
         # write k8s_config to yaml file
         yaml_ptah = os.path.join(work_dir, '{}-{}.yaml'.format(args.chain_name, i))

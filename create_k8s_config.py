@@ -1187,7 +1187,7 @@ def run_subcmd_multi_cluster(args, work_dir):
     
     # parse and check arguments
     if not args.super_admin:
-        print('Need super admin.')
+        print('super_admin must be set!')
         sys.exit(1)
     nodes = args.nodes.split(',')
     lbs_tokens = args.lbs_tokens.split(',')

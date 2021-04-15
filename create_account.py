@@ -33,6 +33,5 @@ def main():
         stream.write(address)
 
 
-
 if __name__ == '__main__':
     main()

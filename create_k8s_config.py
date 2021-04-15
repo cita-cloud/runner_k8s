@@ -30,6 +30,8 @@ SERVICE_LIST = [
 
 SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
 
+DEBUG_DOCKER_IMAGE = 'subfuzion/netcat'
+
 SYNC_FOLDERS = [
     'blocks',
     'proposals',
@@ -68,16 +70,13 @@ def parse_arguments():
         '--kms_password', help='Password of kms.')
 
     plocal_cluster.add_argument(
-        '--state_db_user', help='User of state db.')
+        '--state_db_user', default='citacloud', help='User of state db.')
 
     plocal_cluster.add_argument(
-        '--state_db_password', help='Password of state db.')
+        '--state_db_password', default='citacloud', help='Password of state db.')
 
     plocal_cluster.add_argument(
         '--service_config', default='service-config.toml', help='Config file about service information.')
-
-    plocal_cluster.add_argument(
-        '--data_dir', default='/home/docker/cita-cloud-datadir', help='Root data dir where store data of each node.')
 
     plocal_cluster.add_argument(
         '--node_port',
@@ -92,13 +91,87 @@ def parse_arguments():
         help='Is need monitor')
 
     plocal_cluster.add_argument(
-        '--nfs_server', help='Address of nfs server.')
-
+        '--pvc_name', help='Name of persistentVolumeClaim.')
+    
     plocal_cluster.add_argument(
-        '--nfs_path', help='Path of nfs .')
+        '--need_debug',
+        type=bool,
+        default=False,
+        help='Is need debug container')
+
+    #
+    # Subcommand: multi_cluster
+    #
+
+    pmulti_cluster = subparsers.add_parser(
+        SUBCMD_MULTI_CLUSTER, help='Create a chain in multi cluster.')
+
+    pmulti_cluster.add_argument(
+        '--block_delay_number',
+        type=int,
+        default=0,
+        help='The block delay number of chain.')
+    
+    pmulti_cluster.add_argument(
+        '--chain_name', default='test-chain', help='The name of chain.')
+    
+    pmulti_cluster.add_argument(
+        '--service_config', default='service-config.toml', help='Config file about service information.')
+
+    pmulti_cluster.add_argument(
+        '--need_monitor',
+        type=bool,
+        default=False,
+        help='Is need monitor')
+    
+    pmulti_cluster.add_argument(
+        '--timestamp',
+        type=int,
+        help='Timestamp of genesis block.')
+
+    pmulti_cluster.add_argument(
+        '--super_admin',
+        help='Address of super admin.')
+
+    pmulti_cluster.add_argument(
+        '--authorities',
+        help='Authorities (addresses) list.')
+
+    pmulti_cluster.add_argument(
+        '--nodes',
+        help='Node network ip list.')
+    
+    pmulti_cluster.add_argument(
+        '--lbs_tokens',
+        help='The token list of LBS.')
+    
+    pmulti_cluster.add_argument(
+        '--sync_device_ids',
+        help='Device id list of syncthings.')
+
+    pmulti_cluster.add_argument(
+        '--kms_passwords', help='Password list of kms.')
+
+    pmulti_cluster.add_argument(
+        '--node_ports',
+        help='The list of start port of Nodeport.')
+
+    pmulti_cluster.add_argument(
+        '--pvc_names', help='The list of persistentVolumeClaim names.')
+
+    pmulti_cluster.add_argument(
+        '--state_db_user', default='citacloud', help='User of state db.')
+
+    pmulti_cluster.add_argument(
+        '--state_db_password', default='citacloud', help='Password of state db.')
+    
+    pmulti_cluster.add_argument(
+        '--need_debug',
+        type=bool,
+        default=False,
+        help='Is need debug container')
 
     args = parser.parse_args()
-
     return args
 
 
@@ -125,7 +198,7 @@ def gen_net_config_list(peers):
         peers_clone = copy.deepcopy(peers)
         peers_clone.remove(peer)
         net_config = {
-            'port': peer['port'],
+            'port': 40000,
             'peers': peers_clone
         }
         net_config_list.append(net_config)
@@ -240,6 +313,36 @@ def gen_kms_account(dir, kms_docker_image):
     return address
 
 
+def gen_super_admin(work_dir, chain_name, kms_docker_image, kms_password):
+    path = os.path.join(work_dir, 'cita-cloud/{}/key_file'.format(chain_name))
+    with open(path, 'wt') as stream:
+        stream.write(kms_password)
+    super_admin = gen_kms_account("{0}/cita-cloud/{1}".format(work_dir, chain_name), kms_docker_image)
+    # clean key_file
+    os.remove(path)
+    return super_admin
+
+
+def gen_authorities(work_dir, chain_name, kms_docker_image, kms_password, peers_count):
+    for i in range(peers_count):
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
+        with open(path, 'wt') as stream:
+            stream.write(kms_password)
+    
+    authorities = []
+    for i in range(peers_count):
+        path = "{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i)
+        addr = gen_kms_account(path, kms_docker_image)
+        authorities.append(addr)
+    
+    # clean key_file for peers
+    for i in range(peers_count):
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
+        os.remove(path)
+    
+    return authorities
+
+
 INIT_SYSCONFIG_TEMPLATE = '''version = 0
 chain_id = \"0x0000000000000000000000000000000000000000000000000000000000000001\"
 admin = \"0x010928818c840630a60b4fda06848cac541599462f\"
@@ -248,43 +351,17 @@ validators = [\"0x010928818c840630a60b4fda06848cac541599462f\"]
 '''
 
 
-def gen_init_sysconfig(work_dir, chain_name, peers_count, kms_password, kms_docker_image):
-    # set key_file
-    # for admin
-    path = os.path.join(work_dir, 'cita-cloud/{}/key_file'.format(chain_name))
-    with open(path, 'wt') as stream:
-        stream.write(kms_password)
-
-    # for all peers
-    for i in range(peers_count):
-        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
-        with open(path, 'wt') as stream:
-            stream.write(kms_password)
-
+def gen_init_sysconfig(work_dir, chain_name, super_admin, authorities, peers_count):
     init_sys_config = toml.loads(INIT_SYSCONFIG_TEMPLATE)
     init_sys_config['block_interval'] = DEFAULT_BLOCK_INTERVAL
-    init_sys_config['validators'] = []
-
-    # generate admin account
-    admin_addr = gen_kms_account("{0}/cita-cloud/{1}".format(work_dir, chain_name), kms_docker_image)
-    init_sys_config['admin'] = admin_addr
-
-    # generate account for all peers
-    for i in range(peers_count):
-        path = "{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i)
-        addr = gen_kms_account(path, kms_docker_image)
-        init_sys_config['validators'].append(addr)
+    init_sys_config['validators'] = authorities    
+    init_sys_config['admin'] = super_admin
 
     # write init_sys_config.toml into peers
     for i in range(peers_count):
         path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'init_sys_config.toml')
         with open(path, 'wt') as stream:
             toml.dump(init_sys_config, stream)
-
-    # clean key_file for peers
-    for i in range(peers_count):
-        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_file')
-        os.remove(path)
 
 
 # generate sync peers info by pod name
@@ -344,10 +421,13 @@ def gen_sync_configs(work_dir, sync_peers, chain_name):
         apikey = ET.SubElement(gui, 'apikey')
         apikey.text = chain_name
 
+        path = os.path.join(work_dir, 'cita-cloud/{}/node{}/config'.format(chain_name, i))
+        need_directory(path)
+
         config_example.write(os.path.join(work_dir, 'cita-cloud/{}/node{}/config/config.xml'.format(chain_name, i)))
 
 
-def gen_kms_secret(kms_password):
+def gen_kms_secret(kms_password, secret_name):
     bpwd = bytes(kms_password, encoding='utf8')
     b64pwd = base64.b64encode(bpwd)
     b64pwd_str = b64pwd.decode('utf-8')
@@ -355,7 +435,7 @@ def gen_kms_secret(kms_password):
         'apiVersion': 'v1',
         'kind': 'Secret',
         'metadata': {
-            'name': 'kms-secret',
+            'name': secret_name,
         },
         'type': 'Opaque',
         'data': {
@@ -508,17 +588,33 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_pod(i, args, service_config):
-    chain_name = args.chain_name
-    data_dir = args.data_dir
-    state_db_user = args.state_db_user
-    state_db_password = args.state_db_password
-    is_need_monitor = args.need_monitor
-    nfs_server = args.nfs_server
-    nfs_path = args.nfs_path
-    is_nfs = nfs_server and nfs_path
-
+def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug):
     containers = []
+    if is_need_debug:
+        debug_container = {
+            'image': DEBUG_DOCKER_IMAGE,
+            'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
+            'name': 'debug',
+            'ports': [
+                    {
+                        'containerPort': 9999,
+                        'protocol': 'TCP',
+                        'name': 'debug',
+                    },
+            ],
+            'args': [
+                '-vlk',
+                '9999',
+            ],
+            'volumeMounts': [
+                {
+                    'name': 'datadir',
+                    'subPath': 'cita-cloud/{}/node{}'.format(chain_name, i),
+                    'mountPath': '/data',
+                }
+            ],
+        }
+        containers.append(debug_container)
     syncthing_container = {
         'image': SYNCTHING_DOCKER_IMAGE,
         'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
@@ -852,7 +948,7 @@ def gen_node_pod(i, args, service_config):
         {
             'name': 'kms-key',
             'secret': {
-                'secretName': 'kms-secret'
+                'secretName': kms_secret_name
             }
         },
         {
@@ -861,23 +957,13 @@ def gen_node_pod(i, args, service_config):
                 'secretName': 'node{}-network-secret'.format(i)
             }
         },
+        {
+            'name': 'datadir',
+            'persistentVolumeClaim': {
+                'claimName': pvc_name,
+            }
+        },
     ]
-    if is_nfs:
-        data_dir_volume ={
-            'name': 'datadir',
-            'nfs': {
-                'path': nfs_path,
-                'server': nfs_server,
-            }
-        }
-    else:
-        data_dir_volume ={
-            'name': 'datadir',
-            'hostPath': {
-                'path': data_dir
-            }
-        }
-    volumes.append(data_dir_volume)
     pod = {
         'apiVersion': 'v1',
         'kind': 'Pod',
@@ -903,16 +989,12 @@ def find_docker_image(service_config, service_name):
             return service['docker_image']
 
 
-def run_subcmd_local_cluster(args, work_dir):
-    if not args.kms_password:
-        print('kms_password must be set!')
-        sys.exit(1)
-    service_config_path = os.path.join(work_dir, args.service_config)
-    print("service_config_path:", service_config_path)
-    service_config = toml.load(service_config_path)
-    print("service_config:", service_config)
+def load_service_config(work_dir, service_config):
+    service_config_path = os.path.join(work_dir, service_config)
+    return toml.load(service_config_path)
 
-    # verify service_config
+
+def verify_service_config(service_config):
     indexs = 1
     for service in service_config['services']:
         index = (SERVICE_LIST.index(service['name']) + 1) * 10
@@ -921,6 +1003,23 @@ def run_subcmd_local_cluster(args, work_dir):
     if indexs != 10 * 20 * 30 * 40 * 50 * 60:
         print('There must be 6 services:', SERVICE_LIST)
         sys.exit(1)
+
+
+def run_subcmd_local_cluster(args, work_dir):
+    if not args.kms_password:
+        print('kms_password must be set!')
+        sys.exit(1)
+
+    if not args.pvc_name:
+        print('pvc_name must be set!')
+        sys.exit(1)
+
+    # load service_config
+    service_config = load_service_config(work_dir, args.service_config)
+    print("service_config:", service_config)
+
+    # verify service_config
+    verify_service_config(service_config)
 
     # generate peers info by pod name
     peers = gen_peers(args.peers_count, args.chain_name)
@@ -949,9 +1048,11 @@ def run_subcmd_local_cluster(args, work_dir):
         gen_genesis(node_path, timestamp, DEFAULT_PREVHASH)
 
 
-    # generate genesis and init_sys_config
+    # generate init_sys_config
     kms_docker_image = find_docker_image(service_config, "kms")
-    gen_init_sysconfig(work_dir, args.chain_name, args.peers_count, args.kms_password, kms_docker_image)
+    super_admin = gen_super_admin(work_dir, args.chain_name, kms_docker_image, args.kms_password)
+    authorities = gen_authorities(work_dir, args.chain_name, kms_docker_image, args.kms_password, args.peers_count)
+    gen_init_sysconfig(work_dir, args.chain_name, super_admin, authorities, args.peers_count)
 
     # generate syncthing config
     sync_peers = gen_sync_peers(work_dir, args.peers_count, args.chain_name)
@@ -964,7 +1065,7 @@ def run_subcmd_local_cluster(args, work_dir):
 
     # generate k8s yaml
     k8s_config = []
-    kms_secret = gen_kms_secret(args.kms_password)
+    kms_secret = gen_kms_secret(args.kms_password, 'kms-secret')
     k8s_config.append(kms_secret)
     grpc_service = gen_grpc_service(args.chain_name, args.node_port)
     k8s_config.append(grpc_service)
@@ -973,7 +1074,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        pod = gen_node_pod(i, args, service_config)
+        pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret', args.need_debug)
         k8s_config.append(pod)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -990,11 +1091,204 @@ def run_subcmd_local_cluster(args, work_dir):
     print("Done!!!")
 
 
+# multi cluster
+def gen_peers_net_addr(nodes, node_ports):
+    return list(map(lambda ip, port: {'ip': ip, 'port': port}, nodes, node_ports))
+
+
+def gen_sync_peers_mc(nodes, node_ports, sync_device_ids):
+    return list(map(lambda ip, port, device_id: {'ip': ip, 'port': port + 1, 'device_id': device_id}, nodes, node_ports, sync_device_ids))
+
+
+def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_debug, is_chaincode_executor):
+    ports = [
+        {
+            'port': node_port,
+            'targetPort': 40000,
+            'name': 'network',
+        },
+        {
+            'port': node_port + 1,
+            'targetPort': 22000,
+            'name': 'sync',
+        },
+        {
+            'port': node_port + 2,
+            'targetPort': 50004,
+            'name': 'rpc',
+        },
+        {
+            'port': node_port + 3,
+            'targetPort': 50002,
+            'name': 'call',
+        },
+    ]
+    if is_need_monitor:
+        process_port = {
+            'port': node_port + 4,
+            'targetPort': 9256,
+            'name': 'process',
+        }
+        ports.append(process_port)
+        exporter_port = {
+            'port': node_port + 5,
+            'targetPort': 9349,
+            'name': 'exporter',
+        }
+        ports.append(exporter_port)
+    if is_chaincode_executor:
+        chaincode_port = {
+            'port': node_port + 6,
+            'targetPort': 7052,
+            'name': 'chaincode',
+        }
+        ports.append(chaincode_port)
+        eventhub_port = {
+            'port': node_port + 7,
+            'targetPort': 7053,
+            'name': 'eventhub',
+        }
+        ports.append(eventhub_port)
+    if is_need_debug:
+        debug_port = {
+            'port': node_port + 8,
+            'targetPort': 9999,
+            'name': 'debug',
+        }
+        ports.append(debug_port)
+    all_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'annotations': {
+                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id': token,
+                'service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners': 'true',
+            },
+            'name': 'all-{}-{}'.format(chain_name, i)
+        },
+        'spec': {
+            'type': 'LoadBalancer',
+            'ports': ports,
+            'selector': {
+                'node_name': get_node_pod_name(i, chain_name)
+            }
+        }
+    }
+    return all_service
+
+
+def run_subcmd_multi_cluster(args, work_dir):
+    # load service_config
+    service_config = load_service_config(work_dir, args.service_config)
+    print("service_config:", service_config)
+
+    # verify service_config
+    verify_service_config(service_config)
+    
+    # parse and check arguments
+    if not args.super_admin:
+        print('super_admin must be set!')
+        sys.exit(1)
+    nodes = args.nodes.split(',')
+    lbs_tokens = args.lbs_tokens.split(',')
+    authorities = args.authorities.split(',')
+    sync_device_ids = args.sync_device_ids.split(',')
+    kms_passwords = args.kms_passwords.split(',')
+    node_ports = list(map(lambda x : int(x), args.node_ports.split(',')))
+    pvc_names = args.pvc_names.split(',')
+
+    peers_count = len(nodes)
+    if len(lbs_tokens) != peers_count:
+        print('The len of lbs_tokens is invalid')
+        sys.exit(1)
+
+    if len(authorities) != peers_count:
+        print('The len of authorities is invalid')
+        sys.exit(1)
+    
+    if len(sync_device_ids) != peers_count:
+        print('The len of sync_device_ids is invalid')
+        sys.exit(1)
+
+    if len(kms_passwords) != peers_count:
+        print('The len of kms_passwords is invalid')
+        sys.exit(1)
+
+    if len(node_ports) != peers_count:
+        print('The len of node_ports is invalid')
+        sys.exit(1)
+    
+    if len(pvc_names) != peers_count:
+        print('The len of pvc_names is invalid')
+        sys.exit(1)
+
+    # generate peers info by pod name
+    peers = gen_peers_net_addr(nodes, node_ports)
+    print("peers:", peers)
+
+    # generate network config for all peers
+    net_config_list = gen_net_config_list(peers)
+    print("net_config_list:", net_config_list)
+
+    # generate node config
+    if args.timestamp:
+        timestamp = args.timestamp
+    else:
+        timestamp = int(time.time() * 1000)
+    for index, net_config in enumerate(net_config_list):
+        node_path = os.path.join(work_dir, 'cita-cloud/{}/node{}'.format(args.chain_name, index))
+        need_directory(node_path)
+        tx_infos_path = os.path.join(work_dir, 'cita-cloud/{}/node{}/tx_infos'.format(args.chain_name, index))
+        need_directory(tx_infos_path)
+        # generate network config file
+        net_config_file = os.path.join(node_path, 'network-config.toml')
+        with open(net_config_file, 'wt') as stream:
+            toml.dump(net_config, stream)
+        # generate log config
+        gen_log4rs_config(node_path)
+        gen_consensus_config(node_path, index)
+        gen_controller_config(node_path, args.block_delay_number)
+        # generate genesis
+        gen_genesis(node_path, timestamp, DEFAULT_PREVHASH)
+
+    # generate init_sys_config
+    gen_init_sysconfig(work_dir, args.chain_name, args.super_admin, authorities, peers_count)
+    
+    # generate syncthing config
+    sync_peers = gen_sync_peers_mc(nodes, node_ports, sync_device_ids)
+    print("sync_peers:", sync_peers)
+    gen_sync_configs(work_dir, sync_peers, args.chain_name)
+
+    # is chaincode executor
+    executor_docker_image = find_docker_image(service_config, "executor")
+    is_chaincode_executor = "chaincode" in executor_docker_image
+
+    # generate k8s yaml
+    for i in range(peers_count):
+        k8s_config = []
+        kms_secret = gen_kms_secret(kms_passwords[i], 'kms-secret-{}'.format(i))
+        k8s_config.append(kms_secret)
+        netwok_secret = gen_network_secret(i)
+        k8s_config.append(netwok_secret)
+        pod = gen_node_pod(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret-{}'.format(i), args.need_debug)
+        k8s_config.append(pod)
+        all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
+        k8s_config.append(all_service)
+        # write k8s_config to yaml file
+        yaml_ptah = os.path.join(work_dir, '{}-{}.yaml'.format(args.chain_name, i))
+        print("yaml_ptah:{}", yaml_ptah)
+        with open(yaml_ptah, 'wt') as stream:
+            yaml.dump_all(k8s_config, stream, sort_keys=False)
+
+    print("Done!!!")
+
+
 def main():
     args = parse_arguments()
     print("args:", args)
     funcs_router = {
         SUBCMD_LOCAL_CLUSTER: run_subcmd_local_cluster,
+        SUBCMD_MULTI_CLUSTER: run_subcmd_multi_cluster,
     }
     work_dir = os.path.abspath(os.curdir)
     funcs_router[args.subcmd](args, work_dir)
@@ -1002,4 +1296,5 @@ def main():
 
 if __name__ == '__main__':
     SUBCMD_LOCAL_CLUSTER = 'local_cluster'
+    SUBCMD_MULTI_CLUSTER = 'multi_cluster'
     main()

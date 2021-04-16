@@ -162,7 +162,7 @@ cita-cloud
 
 `node0`，`node1`, `node2`是三个节点文件夹，里面有相应节点的配置文件。
 
-`test-chain.yaml`用于将链部署到`k8s`，里面声明了相关的`secret`/`pod`/`service`，文件名跟`chain_name`参数保持一致。
+`test-chain.yaml`用于将链部署到`k8s`，里面声明了相关的`secret`/`deployment`/`service`，文件名跟`chain_name`参数保持一致。
 
 ### Node Port
 
@@ -199,20 +199,33 @@ secret/kms-secret created
 service/test-chain-node-port created
 secret/node0-network-secret created
 service/test-chain-0 created
-pod/test-chain-0 created
+deployment.apps/deployment-test-chain-0 created
+service/executor-test-chain-0 created
 secret/node1-network-secret created
 service/test-chain-1 created
-pod/test-chain-1 created
+deployment.apps/deployment-test-chain-1 created
+service/executor-test-chain-1 created
 secret/node2-network-secret created
 service/test-chain-2 created
-pod/test-chain-2 created
+deployment.apps/deployment-test-chain-2 created
+service/executor-test-chain-2 created
 ```
 
 查看运行情况：
 
 ```shell
+$ kubectl get po
+NAME                                       READY   STATUS    RESTARTS   AGE
+test-chain-0-6549db45f8-9j75p   7/7     Running   0          67s
+test-chain-1-75ff584bcb-v5nw4   7/7     Running   0          66s
+test-chain-2-7774f7dd46-pvw5t   7/7     Running   0          66s
+$ kubectl get deployments.apps
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+test-chain-0              1/1     1            1           71s
+test-chain-1              1/1     1            1           71s
+test-chain-2              1/1     1            1           70s
 $ minikube ssh
-docker@minikube:~$ tail -10f cita-cloud-datadir/cita-cloud/test-chain/node0/logs/controller-service.log  
+docker@minikube:~$ tail -10f cita-cloud-datadir/cita-cloud/test-chain/node0/logs/controller-service.log
 2020-08-27T07:42:43.280172163+00:00 INFO controller::chain - 1 blocks finalized
 2020-08-27T07:42:43.282871996+00:00 INFO controller::chain - executed block 1397 hash: 0x 16469..e061
 2020-08-27T07:42:43.354375501+00:00 INFO controller::pool - before update len of pool 0, will update 0 tx
@@ -228,18 +241,21 @@ docker@minikube:~$ tail -10f cita-cloud-datadir/cita-cloud/test-chain/node0/logs
 停止
 
 ```
-$ kubectl delete -f test-chain.yaml 
+$ kubectl delete -f test-chain.yaml
 secret "kms-secret" deleted
 service "test-chain-node-port" deleted
 secret "node0-network-secret" deleted
 service "test-chain-0" deleted
-pod "test-chain-0" deleted
+deployment.apps "deployment-test-chain-0" deleted
+service "executor-test-chain-0" deleted
 secret "node1-network-secret" deleted
 service "test-chain-1" deleted
-pod "test-chain-1" deleted
+deployment.apps "deployment-test-chain-1" deleted
+service "executor-test-chain-1" deleted
 secret "node2-network-secret" deleted
 service "test-chain-2" deleted
-pod "test-chain-2" deleted
+deployment.apps "deployment-test-chain-2" deleted
+service "executor-test-chain-2" deleted
 ```
 
 

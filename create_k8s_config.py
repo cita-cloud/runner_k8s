@@ -12,6 +12,7 @@ import copy
 import xml.etree.ElementTree as ET
 import base64
 import yaml
+import hashlib
 
 DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
@@ -211,6 +212,10 @@ def need_directory(path):
         os.makedirs(path)
 
 
+def gen_chainid(chain_name):
+    return '0x'+hashlib.sha256(chain_name.encode()).hexdigest()
+
+
 LOG_CONFIG_TEMPLATE = '''# Scan this file for changes every 30 seconds
 refresh_rate: 30 seconds
 
@@ -356,6 +361,7 @@ def gen_init_sysconfig(work_dir, chain_name, super_admin, authorities, peers_cou
     init_sys_config['block_interval'] = DEFAULT_BLOCK_INTERVAL
     init_sys_config['validators'] = authorities    
     init_sys_config['admin'] = super_admin
+    init_sys_config['chain_id'] = gen_chainid(chain_name)
 
     # write init_sys_config.toml into peers
     for i in range(peers_count):

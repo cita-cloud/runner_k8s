@@ -142,6 +142,8 @@ $ kubectl apply -f nfs-pvc.yaml
 
 运行命令生成相应的文件。`kms`的密码，`pvc`的名字是必选参数，其他参数可以使用默认值。
 
+注意：如果要在一个集群中同时运行多条链，请务必保证`chain_name`是唯一的。它会作为配置文件的文件夹名称，`k8s`配置文件的名称，以及经过`sha256`运算后作为`chainid`。
+
 ```shell
 $ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --pvc_name local-pvc
 $ ls

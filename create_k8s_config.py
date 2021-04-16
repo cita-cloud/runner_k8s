@@ -230,7 +230,7 @@ appenders:
       # deserializer, and will vary based on the kind of policy.
       trigger:
         kind: size
-        limit: 1mb
+        limit: 50mb
       roller:
         kind: fixed_window
         base: 1

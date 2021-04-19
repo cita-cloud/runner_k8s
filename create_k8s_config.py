@@ -115,6 +115,9 @@ def parse_arguments():
     
     pmulti_cluster.add_argument(
         '--chain_name', default='test-chain', help='The name of chain.')
+
+    pmulti_cluster.add_argument(
+        '--work_dir', default='./', help='The output director of node config files.')
     
     pmulti_cluster.add_argument(
         '--service_config', default='service-config.toml', help='Config file about service information.')
@@ -393,7 +396,7 @@ def gen_sync_peers(work_dir, count, chain_name):
 
 def gen_sync_configs(work_dir, sync_peers, chain_name):
     for i in range(len(sync_peers)):
-        config_example = ET.parse(os.path.join(work_dir, 'config.xml'))
+        config_example = ET.parse(os.path.join(os.curdir, 'config.xml'))
         root = config_example.getroot()
         # add device for all folder
         for elem in root.findall('folder'):
@@ -1011,8 +1014,8 @@ def find_docker_image(service_config, service_name):
             return service['docker_image']
 
 
-def load_service_config(work_dir, service_config):
-    service_config_path = os.path.join(work_dir, service_config)
+def load_service_config(service_config):
+    service_config_path = os.path.join(os.curdir, service_config)
     return toml.load(service_config_path)
 
 
@@ -1037,7 +1040,7 @@ def run_subcmd_local_cluster(args, work_dir):
         sys.exit(1)
 
     # load service_config
-    service_config = load_service_config(work_dir, args.service_config)
+    service_config = load_service_config(args.service_config)
     print("service_config:", service_config)
 
     # verify service_config
@@ -1201,7 +1204,7 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
 
 def run_subcmd_multi_cluster(args, work_dir):
     # load service_config
-    service_config = load_service_config(work_dir, args.service_config)
+    service_config = load_service_config(args.service_config)
     print("service_config:", service_config)
 
     # verify service_config
@@ -1312,7 +1315,7 @@ def main():
         SUBCMD_LOCAL_CLUSTER: run_subcmd_local_cluster,
         SUBCMD_MULTI_CLUSTER: run_subcmd_multi_cluster,
     }
-    work_dir = os.path.abspath(os.curdir)
+    work_dir = os.path.abspath(args.work_dir)
     funcs_router[args.subcmd](args, work_dir)
 
 

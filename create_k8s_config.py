@@ -53,6 +53,9 @@ def parse_arguments():
         SUBCMD_LOCAL_CLUSTER, help='Create a chain in local cluster.')
 
     plocal_cluster.add_argument(
+        '--work_dir', default='.', help='The output director of node config files.')
+
+    plocal_cluster.add_argument(
         '--block_delay_number',
         type=int,
         default=0,
@@ -77,7 +80,7 @@ def parse_arguments():
         '--state_db_password', default='citacloud', help='Password of state db.')
 
     plocal_cluster.add_argument(
-        '--service_config', default='service-config.toml', help='Config file about service information.')
+        '--service_config', default='./service-config.toml', help='Config file about service information.')
 
     plocal_cluster.add_argument(
         '--node_port',
@@ -117,10 +120,10 @@ def parse_arguments():
         '--chain_name', default='test-chain', help='The name of chain.')
 
     pmulti_cluster.add_argument(
-        '--work_dir', default='./', help='The output director of node config files.')
+        '--work_dir', default='.', help='The output director of node config files.')
     
     pmulti_cluster.add_argument(
-        '--service_config', default='service-config.toml', help='Config file about service information.')
+        '--service_config', default='./service-config.toml', help='Config file about service information.')
 
     pmulti_cluster.add_argument(
         '--need_monitor',
@@ -1015,8 +1018,7 @@ def find_docker_image(service_config, service_name):
 
 
 def load_service_config(service_config):
-    service_config_path = os.path.join(os.curdir, service_config)
-    return toml.load(service_config_path)
+    return toml.load(service_config)
 
 
 def verify_service_config(service_config):

@@ -134,7 +134,7 @@ $ kubectl apply -f nfs-pvc.yaml
 1. `network`。目前只有`network_p2p`这一个实现，选择该实现，需要将`is_need_network_key`设置为`true`。
 2. `consensus`。目前有`consensus_raft`一个实现。
 3. `executor`。目前有`executor_chaincode`和`executor_chaincode_ext`两个实现，其中`executor_chaincode_ext`是不开源的。
-4. `storage`。目前有`storage_sqlite`和`storage_tikv`两个实现。如果选择使用`storage_tikv`，需要先按照[文档](https://tikv.org/docs/4.0/tasks/try/tikv-operator/)安装运行`tikv`。
+4. `storage`。目前有`storage_rocksdb`，`storage_sqlite`和`storage_tikv`三个实现。如果选择使用`storage_tikv`，需要先按照[文档](https://tikv.org/docs/4.0/tasks/try/tikv-operator/)安装运行`tikv`。
 5. `controller`。目前只有`controller_poc`这一个实现。
 6. `kms`。目前有`kms_eth`和`kms_sm`两个实现，分别兼容以太坊和国密。
 

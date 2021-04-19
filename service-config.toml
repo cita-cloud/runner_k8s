@@ -20,8 +20,12 @@ docker_image = "citacloud/executor_evm"
 cmd = "executor run -p 50002"
 [[services]]
 name = "storage"
-docker_image = "citacloud/storage_sqlite"
+docker_image = "citacloud/storage_rocksdb"
 cmd = "storage run -p 50003"
+#[[services]]
+#name = "storage"
+#docker_image = "citacloud/storage_sqlite"
+#cmd = "storage run -p 50003"
 #[[services]]
 #name = "storage"
 #docker_image = "citacloud/storage_tikv"

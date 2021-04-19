@@ -1267,6 +1267,8 @@ def run_subcmd_multi_cluster(args, work_dir):
         need_directory(node_path)
         tx_infos_path = os.path.join(work_dir, 'cita-cloud/{}/node{}/tx_infos'.format(args.chain_name, index))
         need_directory(tx_infos_path)
+        chain_data_path = os.path.join(work_dir, 'cita-cloud/{}/node{}/chain_data'.format(args.chain_name, index))
+        need_directory(chain_data_path)
         # generate network config file
         net_config_file = os.path.join(node_path, 'network-config.toml')
         with open(net_config_file, 'wt') as stream:

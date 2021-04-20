@@ -103,6 +103,12 @@ def parse_arguments():
         default=False,
         help='Is need debug container')
 
+    plocal_cluster.add_argument(
+        '--enable_tls',
+        type=bool,
+        default=False,
+        help='Is enable tls')
+
     #
     # Subcommand: multi_cluster
     #
@@ -177,6 +183,12 @@ def parse_arguments():
         type=bool,
         default=False,
         help='Is need debug container')
+    
+    pmulti_cluster.add_argument(
+        '--enable_tls',
+        type=bool,
+        default=False,
+        help='Is enable tls')
 
     args = parser.parse_args()
     return args
@@ -199,12 +211,13 @@ def gen_peers(count, chain_name):
     return peers
 
 
-def gen_net_config_list(peers):
+def gen_net_config_list(peers, enable_tls):
     net_config_list = []
     for peer in peers:
         peers_clone = copy.deepcopy(peers)
         peers_clone.remove(peer)
         net_config = {
+            'enable_tls': enable_tls,
             'port': 40000,
             'peers': peers_clone
         }
@@ -1053,7 +1066,7 @@ def run_subcmd_local_cluster(args, work_dir):
     print("peers:", peers)
 
     # generate network config for all peers
-    net_config_list = gen_net_config_list(peers)
+    net_config_list = gen_net_config_list(peers, args.enable_tls)
     print("net_config_list:", net_config_list)
 
     # generate node config
@@ -1254,7 +1267,7 @@ def run_subcmd_multi_cluster(args, work_dir):
     print("peers:", peers)
 
     # generate network config for all peers
-    net_config_list = gen_net_config_list(peers)
+    net_config_list = gen_net_config_list(peers, args.enable_tls)
     print("net_config_list:", net_config_list)
 
     # generate node config

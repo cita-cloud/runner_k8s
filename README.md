@@ -21,7 +21,8 @@ pip install -r requirements.txt
 $ ./create_k8s_config.py local_cluster -h
 usage: create_k8s_config.py local_cluster [-h] [--block_delay_number BLOCK_DELAY_NUMBER] [--chain_name CHAIN_NAME] [--peers_count PEERS_COUNT]
                                           [--kms_password KMS_PASSWORD] [--state_db_user STATE_DB_USER] [--state_db_password STATE_DB_PASSWORD]
-                                          [--service_config SERVICE_CONFIG] [--node_port NODE_PORT] [--need_monitor NEED_MONITOR] [--pvc_name PVC_NAME]       
+                                          [--service_config SERVICE_CONFIG] [--node_port NODE_PORT] [--need_monitor NEED_MONITOR] [--pvc_name PVC_NAME]
+                                          [--need_debug NEED_DEBUG] [--enable_tls ENABLE_TLS]     
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -44,6 +45,10 @@ optional arguments:
   --need_monitor NEED_MONITOR
                         Is need monitor
   --pvc_name PVC_NAME   Name of persistentVolumeClaim.
+  --need_debug NEED_DEBUG
+                        Is need debug container
+  --enable_tls ENABLE_TLS
+                        Is enable tls
 ```
 
 ### 持久化存储
@@ -284,7 +289,8 @@ usage: create_k8s_config.py multi_cluster [-h] [--block_delay_number BLOCK_DELAY
                                           [--nodes NODES] [--lbs_tokens LBS_TOKENS] [--sync_device_ids SYNC_DEVICE_IDS]  
                                           [--kms_passwords KMS_PASSWORDS] [--node_ports NODE_PORTS]
                                           [--pvc_names PVC_NAMES] [--state_db_user STATE_DB_USER]
-                                          [--state_db_password STATE_DB_PASSWORD]
+                                          [--state_db_password STATE_DB_PASSWORD] [--need_debug NEED_DEBUG]
+                                          [--enable_tls ENABLE_TLS]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -317,6 +323,10 @@ optional arguments:
                         User of state db.
   --state_db_password STATE_DB_PASSWORD
                         Password of state db.
+  --need_debug NEED_DEBUG
+                        Is need debug container
+  --enable_tls ENABLE_TLS
+                        Is enable tls
 ```
 
 ### 生成配置

@@ -100,7 +100,7 @@ def parse_arguments():
     plocal_cluster.add_argument(
         '--need_debug',
         type=bool,
-        default=True,
+        default=False,
         help='Is need debug container')
 
     plocal_cluster.add_argument(
@@ -181,7 +181,7 @@ def parse_arguments():
     pmulti_cluster.add_argument(
         '--need_debug',
         type=bool,
-        default=True,
+        default=False,
         help='Is need debug container')
     
     pmulti_cluster.add_argument(

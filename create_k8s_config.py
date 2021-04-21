@@ -1210,7 +1210,7 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
         'metadata': {
             'annotations': {
                 'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id': token,
-                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-connect-port': "9999",
+                'service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners': 'true',
                 'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-interval': "50"
             },
             'name': 'all-{}-{}'.format(chain_name, i)

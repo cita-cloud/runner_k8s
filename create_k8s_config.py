@@ -100,13 +100,13 @@ def parse_arguments():
     plocal_cluster.add_argument(
         '--need_debug',
         type=bool,
-        default=False,
+        default=True,
         help='Is need debug container')
 
     plocal_cluster.add_argument(
         '--enable_tls',
         type=bool,
-        default=False,
+        default=True,
         help='Is enable tls')
 
     #
@@ -181,13 +181,13 @@ def parse_arguments():
     pmulti_cluster.add_argument(
         '--need_debug',
         type=bool,
-        default=False,
+        default=True,
         help='Is need debug container')
     
     pmulti_cluster.add_argument(
         '--enable_tls',
         type=bool,
-        default=False,
+        default=True,
         help='Is enable tls')
 
     args = parser.parse_args()
@@ -495,13 +495,17 @@ def gen_grpc_service(chain_name, node_port):
     return grpc_service
 
 
-def gen_network_secret(i):
+def gen_network_secret_name(chain_name, i):
+    return '{}-{}-network-secret'.format(chain_name, i)
+
+
+def gen_network_secret(chain_name, i):
     network_key = '0x' + os.urandom(32).hex()
     netwok_secret = {
         'apiVersion': 'v1',
         'kind': 'Secret',
         'metadata': {
-            'name': 'node{}-network-secret'.format(i),
+            'name': gen_network_secret_name(chain_name, i),
         },
         'type': 'Opaque',
         'data': {
@@ -979,7 +983,7 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
         {
             'name': 'network-key',
             'secret': {
-                'secretName': 'node{}-network-secret'.format(i)
+                'secretName': gen_network_secret_name(chain_name, i)
             }
         },
         {
@@ -1045,6 +1049,10 @@ def verify_service_config(service_config):
         sys.exit(1)
 
 
+def gen_kms_secret_name(chain_name):
+    return 'kms-secret-{}'.format(chain_name)
+
+
 def run_subcmd_local_cluster(args, work_dir):
     if not args.kms_password:
         print('kms_password must be set!')
@@ -1105,16 +1113,16 @@ def run_subcmd_local_cluster(args, work_dir):
 
     # generate k8s yaml
     k8s_config = []
-    kms_secret = gen_kms_secret(args.kms_password, 'kms-secret')
+    kms_secret = gen_kms_secret(args.kms_password, gen_kms_secret_name(args.chain_name))
     k8s_config.append(kms_secret)
     grpc_service = gen_grpc_service(args.chain_name, args.node_port)
     k8s_config.append(grpc_service)
     for i in range(args.peers_count):
-        netwok_secret = gen_network_secret(i)
+        netwok_secret = gen_network_secret(args.chain_name, i)
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret', args.need_debug)
+        deployment = gen_node_deployment(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug)
         k8s_config.append(deployment)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -1202,7 +1210,8 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
         'metadata': {
             'annotations': {
                 'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id': token,
-                'service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners': 'true',
+                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-connect-port': "9999",
+                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-interval': "50"
             },
             'name': 'all-{}-{}'.format(chain_name, i)
         },
@@ -1215,6 +1224,10 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
         }
     }
     return all_service
+
+
+def gen_kms_secret_name_mc(chain_name, i):
+    return 'kms-secret-{}-{}'.format(chain_name, i)
 
 
 def run_subcmd_multi_cluster(args, work_dir):
@@ -1308,11 +1321,11 @@ def run_subcmd_multi_cluster(args, work_dir):
     # generate k8s yaml
     for i in range(peers_count):
         k8s_config = []
-        kms_secret = gen_kms_secret(kms_passwords[i], 'kms-secret-{}'.format(i))
+        kms_secret = gen_kms_secret(kms_passwords[i], gen_kms_secret_name_mc(args.chain_name, i))
         k8s_config.append(kms_secret)
-        netwok_secret = gen_network_secret(i)
+        netwok_secret = gen_network_secret(args.chain_name, i)
         k8s_config.append(netwok_secret)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, 'kms-secret-{}'.format(i), args.need_debug)
+        deployment = gen_node_deployment(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name_mc(args.chain_name, i), args.need_debug)
         k8s_config.append(deployment)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
         k8s_config.append(all_service)

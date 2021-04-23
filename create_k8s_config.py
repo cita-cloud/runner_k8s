@@ -13,6 +13,8 @@ import xml.etree.ElementTree as ET
 import base64
 import yaml
 import hashlib
+from pysmx.SM2 import generate_keypair
+from pysmx.SM3 import hash_msg
 
 DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
@@ -1053,6 +1055,24 @@ def gen_kms_secret_name(chain_name):
     return 'kms-secret-{}'.format(chain_name)
 
 
+def gen_sm2_authorities(work_dir, chain_name, peers_count):
+    authorities = []
+    for i in range(peers_count):
+        pk, sk = generate_keypair()
+        addr = '0x'+hash_msg(pk)[24:]
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'node_key')
+        with open(path, 'wt') as stream:
+            stream.write('0x'+sk.hex())
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'node_address')
+        with open(path, 'wt') as stream:
+            stream.write(addr)
+        path = os.path.join("{0}/cita-cloud/{1}/node{2}".format(work_dir, chain_name, i), 'key_id')
+        with open(path, 'wt') as stream:
+            stream.write(str(i))
+        authorities.append(addr)
+    return authorities
+
+
 def run_subcmd_local_cluster(args, work_dir):
     if not args.kms_password:
         print('kms_password must be set!')
@@ -1097,9 +1117,16 @@ def run_subcmd_local_cluster(args, work_dir):
 
 
     # generate init_sys_config
+    # is bft
+    consensus_docker_image = find_docker_image(service_config, "consensus")
+    is_bft = "bft" in consensus_docker_image
+
     kms_docker_image = find_docker_image(service_config, "kms")
     super_admin = gen_super_admin(work_dir, args.chain_name, kms_docker_image, args.kms_password)
-    authorities = gen_authorities(work_dir, args.chain_name, kms_docker_image, args.kms_password, args.peers_count)
+    if is_bft:
+        authorities = gen_sm2_authorities(work_dir, args.chain_name, args.peers_count)
+    else:
+        authorities = gen_authorities(work_dir, args.chain_name, kms_docker_image, args.kms_password, args.peers_count)
     gen_init_sysconfig(work_dir, args.chain_name, super_admin, authorities, args.peers_count)
 
     # generate syncthing config

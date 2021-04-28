@@ -137,7 +137,7 @@ $ kubectl apply -f nfs-pvc.yaml
 目前微服务的实现有：
 
 1. `network`。目前只有`network_p2p`这一个实现，选择该实现，需要将`is_need_network_key`设置为`true`。
-2. `consensus`。目前有`consensus_raft`一个实现。
+2. `consensus`。目前有`consensus_raft`和`consensus_bft`两个实现。
 3. `executor`。目前有`executor_chaincode`和`executor_chaincode_ext`两个实现，其中`executor_chaincode_ext`是不开源的。
 4. `storage`。目前有`storage_rocksdb`，`storage_sqlite`和`storage_tikv`三个实现。如果选择使用`storage_tikv`，需要先按照[文档](https://tikv.org/docs/4.0/tasks/try/tikv-operator/)安装运行`tikv`。
 5. `controller`。目前只有`controller_poc`这一个实现。
@@ -349,18 +349,37 @@ key_file  key_id  kms.db  node_address
 
 `0x88b3fd84e3b10ac04cd04def0876cb513452c74e`为账户地址。
 
-`key_id`和`kms.db`分别保存了账户的`id`和私钥，后续需要使用，所以先归档到以账户地址命名的文件夹中。
+`key_id`和`kms.db`分别保存了账户的`id`和私钥，需要妥善保管，所以先归档到以账户地址命名的文件夹中。
+
+---
 
 ##### 创建节点账户
 
-使用同样的方法，按照规划的节点数量，为每个节点都生成一个账户地址。
+如果共识选择的是`consensus_bft`：
+
 ```
-kms create output: key_id:1,address:0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb
-kms create output: key_id:1,address:0xdff342dadae5abcb4ca9f899c2168ab69f967c85
-kms create output: key_id:1,address:0x914743835c855baf2f59015179f89f4f7f59e3ff
+$ ./gen_sm2_keypair.py
+address: 0x92de1efa8094c4936edd0645dc824af290b3165b
+$ ls
+0x92de1efa8094c4936edd0645dc824af290b3165b  gen_sm2_keypair.py
+$ ls 0x92de1efa8094c4936edd0645dc824af290b3165b/
+key_id  node_address  node_key
 ```
 
-创建这三个节点账号时的密码，也要作为创建配置时的参数。
+`0x92de1efa8094c4936edd0645dc824af290b3165b`为账户地址。
+
+`key_id`,`node_address`和`node_key`分别保存了账户的`id`,地址和私钥，后续需要使用，所以先归档到以账户地址命名的文件夹中。
+
+其他情况则使用跟`上一节`同样的方法，按照规划的节点数量，为每个节点都生成一个账户地址。
+```
+address:0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb
+address:0xdff342dadae5abcb4ca9f899c2168ab69f967c85
+address:0x914743835c855baf2f59015179f89f4f7f59e3ff
+```
+
+如果共识选择的是`consensus_bft`，需要专门设置每个节点的`kms`的密码；如果不是，则要使用创建这三个节点账号时使用的密码。
+
+`kms`的密码也会作为创建配置时的参数。
 
 假设密码分别为：`password0`,`password1`,`password2`。
 
@@ -455,9 +474,19 @@ cita-cloud
 
 上面生成的配置文件并不完整，还需要将准备阶段归档的文件拷贝进去补充完整。
 
-节点0对应的账户为`0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb`，因此需要将创建该账号时归档的`node_address`,`key_id`和`kms.db`三个文件拷贝到`cita-cloud/test-chain/node0/`下。
+1. 节点0对应的账户为`0xbdfa0bbd30e5219d7778c461e49b600fdfb703bb`。
 
-节点0对应的`device id`为`NVSFY4A-Z22XP3J-WHA5GPL-AGFCVVA-IWECW3E-GE34T2O-3MUXT63-LTE6YQP`。因此需要将创建该`device id`时归档的`cert.pem`和`key.pem`两个文件拷贝到`cita-cloud/test-chain/node0/config/`下。
+    如果共识选择的是`consensus_bft`：
+
+        将创建该账号时归档的`node_address`,`key_id`和`node_key`三个文件拷贝到`cita-cloud/test-chain/node0/`下。
+
+    其他情况：
+
+        将创建该账号时归档的`node_address`,`key_id`和`kms.db`三个文件拷贝到`cita-cloud/test-chain/node0/`下。
+
+2. 节点0对应的`device id`为`NVSFY4A-Z22XP3J-WHA5GPL-AGFCVVA-IWECW3E-GE34T2O-3MUXT63-LTE6YQP`。
+   
+   因此需要将创建该`device id`时归档的`cert.pem`和`key.pem`两个文件拷贝到`cita-cloud/test-chain/node0/config/`下。
 
 其他两个节点采用同样的操作进行处理。
 

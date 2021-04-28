@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+# pylint: disable=missing-docstring
+
 import os
 from pysmx.SM2 import generate_keypair
 from pysmx.SM3 import hash_msg

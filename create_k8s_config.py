@@ -111,6 +111,17 @@ def parse_arguments():
         default=True,
         help='Is enable tls')
 
+    plocal_cluster.add_argument(
+        '--is_stdout',
+        type=bool,
+        default=False,
+        help='Is output to stdout')
+
+    plocal_cluster.add_argument(
+        '--log_level',
+        default="info",
+        help='log level: warn/info/debug/trace')
+
     #
     # Subcommand: multi_cluster
     #
@@ -192,6 +203,17 @@ def parse_arguments():
         default=True,
         help='Is enable tls')
 
+    pmulti_cluster.add_argument(
+        '--is_stdout',
+        type=bool,
+        default=False,
+        help='Is output to stdout')
+
+    pmulti_cluster.add_argument(
+        '--log_level',
+        default="info",
+        help='log level: warn/info/debug/trace')
+
     args = parser.parse_args()
     return args
 
@@ -265,17 +287,21 @@ appenders:
 
 # Set the default logging level and attach the default appender to the root
 root:
-  level: info
+  level: {1}
   appenders:
-    - journey-service
+    - {2}
 '''
 
 
-def gen_log4rs_config(node_path):
+def gen_log4rs_config(node_path, log_level, is_stdout):
+    if is_stdout:
+        appender = "stdout"
+    else:
+        appender = "journey-service"
     for service_name in SERVICE_LIST:
         path = os.path.join(node_path, '{}-log4rs.yaml'.format(service_name))
         with open(path, 'wt') as stream:
-            stream.write(LOG_CONFIG_TEMPLATE.format(service_name))
+            stream.write(LOG_CONFIG_TEMPLATE.format(service_name, log_level, appender))
 
 
 CONSENSUS_CONFIG_TEMPLATE = '''network_port = 50000
@@ -1109,7 +1135,7 @@ def run_subcmd_local_cluster(args, work_dir):
         with open(net_config_file, 'wt') as stream:
             toml.dump(net_config, stream)
         # generate log config
-        gen_log4rs_config(node_path)
+        gen_log4rs_config(node_path, args.log_level, args.is_stdout)
         gen_consensus_config(node_path, index)
         gen_controller_config(node_path, args.block_delay_number)
         # generate genesis
@@ -1327,7 +1353,7 @@ def run_subcmd_multi_cluster(args, work_dir):
         with open(net_config_file, 'wt') as stream:
             toml.dump(net_config, stream)
         # generate log config
-        gen_log4rs_config(node_path)
+        gen_log4rs_config(node_path, args.log_level, args.is_stdout)
         gen_consensus_config(node_path, index)
         gen_controller_config(node_path, args.block_delay_number)
         # generate genesis

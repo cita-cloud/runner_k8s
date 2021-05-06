@@ -33,7 +33,7 @@ SERVICE_LIST = [
 
 SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
 
-DEBUG_DOCKER_IMAGE = 'subfuzion/netcat'
+DEBUG_DOCKER_IMAGE = 'praqma/network-multitool'
 
 SYNC_FOLDERS = [
     'blocks',
@@ -659,9 +659,11 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
                         'name': 'debug',
                     },
             ],
-            'args': [
-                '-vlk',
-                '9999',
+            'env': [
+                {
+                    'name': 'HTTP_PORT',
+                    'value': '9999',
+                },
             ],
             'volumeMounts': [
                 {

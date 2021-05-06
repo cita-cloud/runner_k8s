@@ -12,7 +12,7 @@ docker_image = "citacloud/consensus_bft"
 cmd = "consensus run -p 50001"
 #[[services]]
 #name = "executor"
-#docker_image = "citacloud/executor_chaincode"
+#docker_image = "citacloud/executor_poc"
 #cmd = "executor run -p 50002"
 #[[services]]
 #name = "executor"
@@ -30,10 +30,6 @@ cmd = "storage run -p 50003"
 #name = "storage"
 #docker_image = "citacloud/storage_sqlite"
 #cmd = "storage run -p 50003"
-#[[services]]
-#name = "storage"
-#docker_image = "citacloud/storage_tikv"
-#cmd = "storage run -p 50003 -e basic-pd:2379"
 [[services]]
 name = "controller"
 docker_image = "citacloud/controller_poc"

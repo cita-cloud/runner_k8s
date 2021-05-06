@@ -20,7 +20,7 @@ DEFAULT_PREVHASH = '0x{:064x}'.format(0)
 
 DEFAULT_BLOCK_INTERVAL = 6
 
-DEFAULT_IMAGEPULLPOLICY = 'Always'
+DEFAULT_IMAGEPULLPOLICY = 'IfNotPresent'
 
 SERVICE_LIST = [
     'network',
@@ -31,7 +31,7 @@ SERVICE_LIST = [
     'kms',
 ]
 
-SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:latest'
+SYNCTHING_DOCKER_IMAGE = 'syncthing/syncthing:1.16'
 
 DEBUG_DOCKER_IMAGE = 'praqma/network-multitool'
 
@@ -818,7 +818,7 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
                 executor_container['ports'].append(eventhub_port)
                 if "chaincode_ext" in service['docker_image']:
                     state_db_container = {
-                        'image': "couchdb",
+                        'image': "couchdb:3.1.1",
                         'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
                         'name': "couchdb",
                         'ports': [

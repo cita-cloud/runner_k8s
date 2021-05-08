@@ -49,6 +49,10 @@ optional arguments:
                         Is need debug container
   --enable_tls ENABLE_TLS
                         Is enable tls
+  --business_network_name BUSINESS_NETWORK_NAME
+                        The name of the Business Network Definition
+  --business_image_name BUSINESS_IMAGE_NAME
+                        The name of the Business docker image, for example citacloud/trade-network
 ```
 
 ### 持久化存储
@@ -150,7 +154,9 @@ $ kubectl apply -f nfs-pvc.yaml
 注意：如果要在一个集群中同时运行多条链，请务必保证`chain_name`是唯一的。它会作为配置文件的文件夹名称，`k8s`配置文件的名称，以及经过`sha256`运算后作为`chainid`。
 
 ```shell
-$ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --pvc_name local-pvc
+# 请在`--business_network_name`传入所用的业务网络名称，这里使用'trade-network'样例。
+# 请在`--business_image_name`传入所用的业务`docker`镜像名称，这里使用我们预先制作好的`citacloud/trade-network`镜像。
+$ ./create_k8s_config.py local_cluster --kms_password 123456 --peers_count 3 --pvc_name local-pvc --business_image_name citacloud/trade-network --business_network_name trade-network
 $ ls
 cita-cloud  test-chain.yaml
 ```

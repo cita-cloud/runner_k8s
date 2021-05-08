@@ -122,6 +122,16 @@ def parse_arguments():
         default="info",
         help='log level: warn/info/debug/trace')
 
+    plocal_cluster.add_argument(
+        '--business_network_name',
+        help='The name of the Business Network Definition',
+    )
+
+    plocal_cluster.add_argument(
+        '--business_image_name',
+        help='The name of the Business docker image, for example citacloud/trade-network',
+    )
+
     #
     # Subcommand: multi_cluster
     #
@@ -645,7 +655,7 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug):
+def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug, business_network_name, business_image_name):
     containers = []
     if is_need_debug:
         debug_container = {
@@ -854,6 +864,30 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
                         '-c',
                         executor_ext_cmd,
                     ]
+                    # add the composer runtime container
+                    composer_container = {
+                        'image': business_image_name,
+                        'name': "composer",
+                        'args': [
+                            "--peer.address",
+                            "127.0.0.1:7052",
+                        ],
+                        'env': [
+                            {
+                                'name': 'CORE_PEER_LOCALMSPID',
+                                'value': 'Org1MSP',
+                            },
+                            {
+                                'name': 'CORE_PEER_TLS_ENABLED',
+                                'value': 'false',
+                            },
+                            {
+                                'name': 'CORE_CHAINCODE_ID_NAME',
+                                'value': business_network_name,
+                            },
+                        ]
+                    }
+                    containers.append(composer_container)
             containers.append(executor_container)
         elif service['name'] == 'storage':
             storage_container = {
@@ -1110,6 +1144,14 @@ def run_subcmd_local_cluster(args, work_dir):
         print('pvc_name must be set!')
         sys.exit(1)
 
+    if not args.business_image_name:
+        print('business_image_name must be set!')
+        sys.exit(1)
+
+    if not args.business_network_name:
+        print('business_network_name must be set!')
+        sys.exit(1)
+
     # load service_config
     service_config = load_service_config(args.service_config)
     print("service_config:", service_config)
@@ -1177,7 +1219,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug)
+        deployment = gen_node_deployment(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug, args.business_network_name, args.business_image_name)
         k8s_config.append(deployment)
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
@@ -1380,7 +1422,7 @@ def run_subcmd_multi_cluster(args, work_dir):
         k8s_config.append(kms_secret)
         netwok_secret = gen_network_secret(args.chain_name, i)
         k8s_config.append(netwok_secret)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name_mc(args.chain_name, i), args.need_debug)
+        deployment = gen_node_deployment(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name_mc(args.chain_name, i), args.need_debug, None, None)
         k8s_config.append(deployment)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
         k8s_config.append(all_service)

@@ -1,26 +1,30 @@
-#[[services]]
-#name = "network"
-#docker_image = "citacloud/network_p2p:v5.0.0"
-#cmd = "network run -p 50000 -k /network/network-key"
 [[services]]
 name = "network"
-docker_image = "citacloud/network_direct:v5.0.0"
-cmd = "network run -p 50000"
+docker_image = "citacloud/network_p2p:v5.0.0"
+cmd = "network run -p 50000 -k /network/network-key"
 #[[services]]
-#name = "consensus"
-#docker_image = "citacloud/consensus_raft:v5.0.0"
-#cmd = "consensus run -p 50001"
+#name = "network"
+#docker_image = "citacloud/network_direct:v5.0.0"
+#cmd = "network run -p 50000"
 [[services]]
 name = "consensus"
-docker_image = "citacloud/consensus_bft:v5.0.0"
+docker_image = "citacloud/consensus_raft:v5.0.0"
 cmd = "consensus run -p 50001"
+#[[services]]
+#name = "consensus"
+#docker_image = "citacloud/consensus_bft:v5.0.0"
+#cmd = "consensus run -p 50001"
 #[[services]]
 #name = "executor"
 #docker_image = "citacloud/executor_poc:v5.0.0"
 #cmd = "executor run -p 50002"
+#[[services]]
+#name = "executor"
+#docker_image = "citacloud/executor_evm:v5.0.0"
+#cmd = "executor run -p 50002"
 [[services]]
 name = "executor"
-docker_image = "citacloud/executor_evm:v5.0.0"
+docker_image = "citacloud/executor_chaincode_ext:v5.0.0"
 cmd = "executor run -p 50002"
 [[services]]
 name = "storage"

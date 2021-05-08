@@ -1,7 +1,11 @@
+#[[services]]
+#name = "network"
+#docker_image = "citacloud/network_p2p"
+#cmd = "network run -p 50000 -k /network/network-key"
 [[services]]
 name = "network"
-docker_image = "citacloud/network_p2p"
-cmd = "network run -p 50000 -k /network/network-key"
+docker_image = "citacloud/network_direct"
+cmd = "network run -p 50000"
 #[[services]]
 #name = "consensus"
 #docker_image = "citacloud/consensus_raft"
@@ -13,10 +17,6 @@ cmd = "consensus run -p 50001"
 #[[services]]
 #name = "executor"
 #docker_image = "citacloud/executor_poc"
-#cmd = "executor run -p 50002"
-#[[services]]
-#name = "executor"
-#docker_image = "citacloud/executor_chaincode_ext"
 #cmd = "executor run -p 50002"
 [[services]]
 name = "executor"
@@ -32,7 +32,7 @@ cmd = "storage run -p 50003"
 #cmd = "storage run -p 50003"
 [[services]]
 name = "controller"
-docker_image = "citacloud/controller_poc"
+docker_image = "citacloud/controller"
 cmd = "controller run -p 50004"
 [[services]]
 name = "kms"

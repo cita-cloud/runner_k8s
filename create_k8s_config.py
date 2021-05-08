@@ -947,7 +947,7 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
 
     if is_need_monitor:
         monitor_process_container = {
-            'image': 'citacloud/monitor-process-exporter:0.4.0',
+            'image': 'citacloud/monitor-process-exporter:0.4.1',
             'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
             'name': 'monitor-process',
             'ports': [
@@ -974,7 +974,7 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
         }
         containers.append(monitor_process_container)
         monitor_citacloud_container = {
-            'image': 'citacloud/monitor-citacloud-exporter:0.1.0',
+            'image': 'citacloud/monitor-citacloud-exporter:0.1.1',
             'imagePullPolicy': DEFAULT_IMAGEPULLPOLICY,
             'name': 'monitor-citacloud',
             'ports': [

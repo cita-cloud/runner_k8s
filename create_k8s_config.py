@@ -1058,7 +1058,7 @@ def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_d
         },
     ]
     pod = {
-        'apiVersion': 'apps/v1',
+        'apiVersion': 'v1',
         'kind': 'Pod',
         'metadata': {
             'name': get_node_pod_name(i, chain_name),

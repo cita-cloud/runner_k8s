@@ -1205,6 +1205,7 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(network_service)
         pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug, args.business_network_name, args.business_image_name)
         k8s_config.append(pod)
+
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
             k8s_config.append(monitor_service)

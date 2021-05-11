@@ -655,7 +655,7 @@ def gen_executor_service(i, chain_name, node_port, is_chaincode_executor):
     return executor_service
 
 
-def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug, business_network_name, business_image_name):
+def gen_node_pod(i, service_config, chain_name, pvc_name, state_db_user, state_db_password, is_need_monitor, kms_secret_name, is_need_debug, business_network_name, business_image_name):
     containers = []
     if is_need_debug:
         debug_container = {
@@ -1057,9 +1057,9 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
             }
         },
     ]
-    deployment = {
-        'apiVersion': 'apps/v1',
-        'kind': 'Deployment',
+    pod = {
+        'apiVersion': 'v1',
+        'kind': 'Pod',
         'metadata': {
             'name': get_node_pod_name(i, chain_name),
             'labels': {
@@ -1068,28 +1068,12 @@ def gen_node_deployment(i, service_config, chain_name, pvc_name, state_db_user, 
             }
         },
         'spec': {
-            'replicas': 1,
-            'selector': {
-                'matchLabels': {
-                    'node_name': get_node_pod_name(i, chain_name),
-                }
-            },
-            'template': {
-                'metadata': {
-                    'labels': {
-                        'node_name': get_node_pod_name(i, chain_name),
-                        'chain_name': chain_name,
-                    }
-                },
-                'spec': {
-                    'shareProcessNamespace': True,
-                    'containers': containers,
-                    'volumes': volumes,
-                }
-            }
+            'shareProcessNamespace': True,
+            'containers': containers,
+            'volumes': volumes,
         }
     }
-    return deployment
+    return pod
 
 
 def find_docker_image(service_config, service_name):
@@ -1219,8 +1203,9 @@ def run_subcmd_local_cluster(args, work_dir):
         k8s_config.append(netwok_secret)
         network_service = gen_network_service(i, args.chain_name)
         k8s_config.append(network_service)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug, args.business_network_name, args.business_image_name)
-        k8s_config.append(deployment)
+        pod = gen_node_pod(i, service_config, args.chain_name, args.pvc_name, args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name(args.chain_name), args.need_debug, args.business_network_name, args.business_image_name)
+        k8s_config.append(pod)
+
         if args.need_monitor:
             monitor_service = gen_monitor_service(i, args.chain_name, args.node_port)
             k8s_config.append(monitor_service)
@@ -1422,8 +1407,8 @@ def run_subcmd_multi_cluster(args, work_dir):
         k8s_config.append(kms_secret)
         netwok_secret = gen_network_secret(args.chain_name, i)
         k8s_config.append(netwok_secret)
-        deployment = gen_node_deployment(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name_mc(args.chain_name, i), args.need_debug, None, None)
-        k8s_config.append(deployment)
+        pod = gen_node_pod(i, service_config, args.chain_name, pvc_names[i], args.state_db_user, args.state_db_password, args.need_monitor, gen_kms_secret_name_mc(args.chain_name, i), args.need_debug, None, None)
+        k8s_config.append(pod)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
         k8s_config.append(all_service)
         # write k8s_config to yaml file

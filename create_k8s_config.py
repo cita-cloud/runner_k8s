@@ -1313,6 +1313,22 @@ def gen_kms_secret_name_mc(chain_name, i):
 
 
 def run_subcmd_multi_cluster(args, work_dir):
+    if not args.kms_password:
+        print('kms_password must be set!')
+        sys.exit(1)
+
+    if not args.pvc_name:
+        print('pvc_name must be set!')
+        sys.exit(1)
+
+    if not args.business_image_name:
+        print('business_image_name must be set!')
+        sys.exit(1)
+
+    if not args.business_network_name:
+        print('business_network_name must be set!')
+        sys.exit(1)
+
     # load service_config
     service_config = load_service_config(args.service_config)
     print("service_config:", service_config)

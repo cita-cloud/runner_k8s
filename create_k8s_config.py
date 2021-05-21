@@ -183,6 +183,10 @@ def parse_arguments():
         help='The list of start port of Nodeport.')
 
     pmulti_cluster.add_argument(
+        '--nodePort_ports',
+        help='The list of nodePort for all nodes.')
+
+    pmulti_cluster.add_argument(
         '--pvc_names', help='The list of persistentVolumeClaim names.')
 
     pmulti_cluster.add_argument(
@@ -1281,6 +1285,37 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
     return all_service
 
 
+def gen_nodePort_service(i, chain_name, network_nodePort, sync_nodePort):
+    nodePort_service = {
+        'apiVersion': 'v1',
+        'kind': 'Service',
+        'metadata': {
+            'name': '{}-{}-node-port'.format(chain_name, i)
+        },
+        'spec': {
+            'type': 'NodePort',
+            'ports': [
+                {
+                    'port': 40000,
+                    'targetPort': 40000,
+                    'nodePort': network_nodePort,
+                    'name': 'network',
+                },
+                {
+                    'port': 22000,
+                    'targetPort': 22000,
+                    'nodePort': sync_nodePort,
+                    'name': 'sync',
+                },
+            ],
+            'selector': {
+                'node_name': get_node_pod_name(i, chain_name)
+            }
+        }
+    }
+    return nodePort_service
+
+
 def gen_kms_secret_name_mc(chain_name, i):
     return 'kms-secret-{}-{}'.format(chain_name, i)
 
@@ -1303,6 +1338,7 @@ def run_subcmd_multi_cluster(args, work_dir):
     sync_device_ids = args.sync_device_ids.split(',')
     kms_passwords = args.kms_passwords.split(',')
     node_ports = list(map(lambda x : int(x), args.node_ports.split(',')))
+    nodePort_ports = list(map(lambda x : int(x), args.nodePort_ports.split(',')))
     pvc_names = args.pvc_names.split(',')
 
     peers_count = len(nodes)
@@ -1324,6 +1360,10 @@ def run_subcmd_multi_cluster(args, work_dir):
 
     if len(node_ports) != peers_count:
         print('The len of node_ports is invalid')
+        sys.exit(1)
+
+    if len(nodePort_ports) != 2 * peers_count:
+        print('The len of nodePort_ports is invalid')
         sys.exit(1)
     
     if len(pvc_names) != peers_count:
@@ -1384,6 +1424,9 @@ def run_subcmd_multi_cluster(args, work_dir):
         k8s_config.append(deployment)
         all_service = gen_all_service(i, args.chain_name, node_ports[i], lbs_tokens[i], args.need_monitor, args.need_debug, is_chaincode_executor)
         k8s_config.append(all_service)
+        nodePort_service = gen_nodePort_service(i, args.chain_name, nodePort_ports[2 * i], nodePort_ports[2 * i + 1])
+        k8s_config.append(nodePort_service)
+        
         # write k8s_config to yaml file
         yaml_ptah = os.path.join(work_dir, '{}-{}.yaml'.format(args.chain_name, i))
         print("yaml_ptah:{}", yaml_ptah)

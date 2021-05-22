@@ -1206,56 +1206,65 @@ def gen_sync_peers_mc(nodes, node_ports, sync_device_ids):
 def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_debug, is_chaincode_executor):
     ports = [
         {
-            'port': node_port,
+            'port': 40000,
             'targetPort': 40000,
+            'nodePort': node_port,
             'name': 'network',
         },
         {
-            'port': node_port + 1,
+            'port': 22000,
             'targetPort': 22000,
+            'nodePort': node_port + 1,
             'name': 'sync',
         },
         {
-            'port': node_port + 2,
+            'port': 50004,
             'targetPort': 50004,
+            'nodePort': node_port + 2,
             'name': 'rpc',
         },
         {
-            'port': node_port + 3,
+            'port': 50002,
             'targetPort': 50002,
+            'nodePort': node_port + 3,
             'name': 'call',
         },
     ]
     if is_need_monitor:
         process_port = {
-            'port': node_port + 4,
+            'port': 9256,
             'targetPort': 9256,
+            'nodePort': node_port + 4,
             'name': 'process',
         }
         ports.append(process_port)
         exporter_port = {
-            'port': node_port + 5,
+            'port': 9349,
             'targetPort': 9349,
+            'nodePort': node_port + 5,
             'name': 'exporter',
         }
         ports.append(exporter_port)
     if is_chaincode_executor:
         chaincode_port = {
-            'port': node_port + 6,
+            'port': 7052,
             'targetPort': 7052,
+            'nodePort': node_port + 6,
             'name': 'chaincode',
         }
         ports.append(chaincode_port)
         eventhub_port = {
-            'port': node_port + 7,
+            'port': 7053,
             'targetPort': 7053,
+            'nodePort': node_port + 7,
             'name': 'eventhub',
         }
         ports.append(eventhub_port)
     if is_need_debug:
         debug_port = {
-            'port': node_port + 8,
+            'port': 9999,
             'targetPort': 9999,
+            'nodePort': node_port + 8,
             'name': 'debug',
         }
         ports.append(debug_port)
@@ -1263,15 +1272,10 @@ def gen_all_service(i, chain_name, node_port, token, is_need_monitor, is_need_de
         'apiVersion': 'v1',
         'kind': 'Service',
         'metadata': {
-            'annotations': {
-                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-id': token,
-                'service.beta.kubernetes.io/alicloud-loadbalancer-force-override-listeners': 'true',
-                'service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-interval': "50"
-            },
             'name': 'all-{}-{}'.format(chain_name, i)
         },
         'spec': {
-            'type': 'LoadBalancer',
+            'type': 'NodePort',
             'ports': ports,
             'selector': {
                 'node_name': get_node_pod_name(i, chain_name)
